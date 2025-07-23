@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: User identity and restrictions
+
+Parameters:
+  StackName:
+    Type: String
+    Description: The name of stack
+  CallbackUrl:
+    Type: String
+    Description: The callback URL for the user pool client
+    Default: "https://your-frontend-app.com/callback" # Replace with CloudFront domain
+
+Resources:
+  ## User Pool / IdP
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${StackName}-user-pool"
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      SupportedIdentityProviders:
+        - COGNITO
+        #- Google
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+      CallbackURLs:
+        - !Ref CallbackUrl
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub "${StackName}-auth"
+      UserPoolId: !Ref CognitoUserPool
+  # GoogleIdP:
+  #   Type: AWS::Cognito::UserPoolIdentityProvider
+  #   Properties:
+  #     ProviderName: Google
+  #     ProviderType: Google
+  #     UserPoolId: !Ref CognitoUserPool
+  #     ProviderDetails:
+  #       client_id: !Ref GoogleClientId
+  #       client_secret: !Ref GoogleClientSecret
+  #       authorize_scopes: "openid profile email"
+  #     AttributeMapping:
+  #       email: email
+  #       given_name: given_name
+  #       family_name: family_name
+  ## Identity Pool
+  CognitoIdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: !Sub "${StackName}-identity-pool"
+      AllowUnauthenticatedIdentities: false
+      CognitoIdentityProviders:
+        - ClientId: !Ref CognitoUserPoolClient
+          ProviderName: !Sub "cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPool}"
+  CognitoAuthRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                cognito-identity.amazonaws.com:aud: !Ref CognitoIdentityPool
+              "ForAnyValue:StringLike":
+                cognito-identity.amazonaws.com:amr: authenticated
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:CreateMultipartUpload
+                  - s3:UploadPart
+                  - s3:CompleteMultipartUpload
+                Resource: !Sub "arn:aws:s3:::${StackName}-user-uploads/*"
+  IdentityPoolRoleAttachment:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId: !Ref CognitoIdentityPool
+      Roles:
+        authenticated: !GetAtt CognitoAuthRole.Arn
+Outputs:
+  CognitoUserPoolArn:
+    Value: !GetAtt CognitoUserPool.Arn
+    Export:
+      Name: CognitoUserPoolArn
+  CognitoAuthRoleArn:
+    Value: !GetAtt CognitoAuthRole.Arn
+    Export:
+      Name: CognitoAuthRoleArn
