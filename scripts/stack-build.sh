@@ -9,4 +9,4 @@ cd - > /dev/null
 
 # Run SAM build from project root
 echo "🏗️ Building SAM application..."
-sam build --template backend/infra/template.yaml
+sam build --template infra/template.yaml
