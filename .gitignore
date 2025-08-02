@@ -39,3 +39,8 @@ coverage/
 
 # Misc
 *.log
+
+# AWS SAM
+.aws-sam/
+
+local_config.yml
