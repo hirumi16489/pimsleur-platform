@@ -45,13 +45,18 @@ Resources:
         - nodejs18.x
   S3UploadPresignUrlFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
     Properties:
       FunctionName: s3-upload-presign-url
-      CodeUri: ../../src/handlers/upload.ts
-      Handler: app.handler
+      CodeUri: ../../src/handlers
+      Handler: upload.handler
       Runtime: nodejs20.x
       Layers:
         - !Ref ConfigLayer
+      Environment:
+        Variables:
+          NODE_ENV: !Ref Stage
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue

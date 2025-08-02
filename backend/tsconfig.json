@@ -1,5 +1,9 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "layer-config": ["layer-config/nodejs/node_modules/layer-config"]
+    },
     "target": "ES2020",               // Compatible with Lambda nodejs18.x runtime
     "module": "commonjs",             // Lambda uses CommonJS
     "strict": true,                   // Enable strict typing

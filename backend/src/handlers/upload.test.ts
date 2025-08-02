@@ -1,5 +1,6 @@
 import { handler } from "../../src/handlers/upload";
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context, Callback } from "aws-lambda";
+import { FileService } from "../../src/services/FileService";
 
 jest.mock("../../src/services/FileService");
 
@@ -11,9 +12,12 @@ describe("uploadPresignHandler", () => {
     }
   } as unknown as APIGatewayProxyEvent;
 
+  beforeEach(() => {
+    jest.resetAllMocks();
+  });
+
   it("should return 200 with presigned URL", async () => {
-    const { generatePresignedUrl } = require("../../src/services/FileService");
-    generatePresignedUrl.mockResolvedValue("https://example.com");
+    (FileService.prototype.generateUploadUrl as jest.Mock).mockResolvedValue("https://example.com");
 
     const response = await handler(mockEvent, {} as Context, {} as Callback<APIGatewayProxyResult>) as APIGatewayProxyResult;
 
