@@ -42,9 +42,22 @@ Resources:
       Location: stacks/storage.yaml
       Parameters:
         StackName: !Ref StackName
+  EventsStack:
+    Type: AWS::Serverless::Application
+    DependsOn: StorageStack
+    Properties:
+      Location: stacks/events.yaml
+      Parameters:
+        StackName: !Ref StackName
+  DbStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: stacks/database.yaml
+      Parameters:
+        StackName: !Ref StackName
   ApiStack:
     Type: AWS::Serverless::Application
-    DependsOn: [AuthStack, StorageStack]
+    DependsOn: [AuthStack, StorageStack, EventsStack, DbStack]
     Properties:
       Location: stacks/api.yaml
       Parameters:

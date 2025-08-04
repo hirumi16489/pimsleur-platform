@@ -1,14 +1,14 @@
-import { S3ClientWrapper } from '../infrastructure/S3Client';
+import { UploadUrlProvider } from './ports/UploadUrlProvider';
 
 export class FileService {
-  private readonly S3ClientWrapper: S3ClientWrapper;
+  private readonly uploadUrlProvider: UploadUrlProvider;
 
-  constructor(s3ClientWrapper: S3ClientWrapper) {
-    this.S3ClientWrapper = s3ClientWrapper;
+  constructor(uploadUrlProvider: UploadUrlProvider) {
+    this.uploadUrlProvider = uploadUrlProvider;
   }
 
   async generateUploadUrl(userId: string, fileType: string): Promise<string> {
-    return this.S3ClientWrapper.generatePresignedUrl(userId, fileType);
+    return this.uploadUrlProvider.generatePresignedUrl(userId, fileType);
   }
 }
 

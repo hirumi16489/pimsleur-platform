@@ -12,6 +12,9 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "${StackName}-user-uploads"
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         IgnorePublicAcls: true
@@ -29,22 +32,10 @@ Resources:
       #         - "*"
       #       ExposedHeaders:
       #         - ETag
-  LessonAudioBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "${StackName}-lesson-audio"
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        IgnorePublicAcls: true
-        BlockPublicPolicy: true
-        RestrictPublicBuckets: true
-  ScriptStorageBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "${StackName}-script-storage"
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        IgnorePublicAcls: true
-        BlockPublicPolicy: true
-        RestrictPublicBuckets: true
 
+Outputs:
+  UserUploadsBucket:
+    Description: User uploads bucket
+    Value: !Ref UserUploadsBucket
+    Export:
+      Name: UserUploadsBucket

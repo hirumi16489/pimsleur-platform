@@ -1,6 +1,7 @@
-import config, { ConfigType as Ctype } from './config';
+export * from './config';
 
-export type ConfigType = Ctype;
-export {
-	config
-};
+// Types
+export * from './types/GlobalDictionary';
+export * from './types/UserVocab';
+export * from './types/UserLessonVocab';
+export * from './types/LessonProcessing';

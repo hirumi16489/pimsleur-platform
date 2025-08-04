@@ -1,8 +1,4 @@
 import { FileService } from "../../src/services/FileService";
-import * as s3Client from "../../src/infrastructure/S3Client";
-import { S3Client } from "@aws-sdk/client-s3";
-
-jest.mock("../../src/infrastructure/S3Client");
 
 describe("uploadService", () => {
   it("should return a presigned URL", async () => {
