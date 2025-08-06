@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Lambda functions and shared API Gateway for Pimsleur Japanese Platform
+Description: 'API stack: Lambda functions and shared API Gateway for Pimsleur Japanese Platform'
 
 Parameters:
   Stage:
@@ -35,28 +35,20 @@ Resources:
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !ImportValue CognitoUserPoolArn
-  ConfigLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: config-layer
-      Description: Shared config for Lambdas
-      ContentUri: ../../layer-config
-      CompatibleRuntimes:
-        - nodejs18.x
   S3UploadPresignUrlFunction:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
     Properties:
       FunctionName: s3-upload-presign-url
-      CodeUri: ../../src/handlers
+      CodeUri: ../../src/application/handlers
       Handler: upload.handler
       Runtime: nodejs20.x
       Layers:
-        - !Ref ConfigLayer
+        - !ImportValue ConfigLayerArn
       Environment:
         Variables:
-          NODE_ENV: !Ref Stage
+          UPLOAD_BUCKET: !ImportValue UserUploadsBucket
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue

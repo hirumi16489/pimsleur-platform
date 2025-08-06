@@ -1,10 +1,9 @@
 import { z } from "zod";
 
 export enum LessonProcessingStatus {
-	Pending = "pending",
-	InProgress = "in_progress",
-	Completed = "completed",
-	Failed = "failed",
+	IN_PROGRESS = "IN_PROGRESS",
+	COMPLETED = "COMPLETED",
+	FAILED = "FAILED",
 }
 
 export const LessonProcessingSchema = z.object({

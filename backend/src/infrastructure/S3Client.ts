@@ -1,29 +1,37 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { ConfigType } from '../helpers/config';
 
 export class S3ClientWrapper {
   private readonly s3Client: S3Client;
-  private readonly config: ConfigType;
 
-  constructor(config: ConfigType, s3Client: S3Client) {
-    if (!config.UPLOAD_BUCKET_NAME) throw new Error("UPLOAD_BUCKET_NAME is not set");
-
-    this.config = config;
+  constructor(s3Client: S3Client) {
     this.s3Client = s3Client;
   }
 
-  async generatePresignedUrl(userId: string, fileType: string): Promise<string> {
-    const [type, ext] = fileType.split('/');
-    const time = Date.now();
-
+  async generatePresignedUrl(bucket: string, key: string, contentType: string, metadata?: Record<string, string>): Promise<string> {
     const command = new PutObjectCommand({
-      Bucket: this.config.UPLOAD_BUCKET_NAME,
-      Key: `uploads/${userId}/${type}/${time}.${ext}`,
-      ContentType: fileType,
-      Metadata: { userId: `${userId}` }
+      Bucket: bucket,
+      Key: key,
+      ContentType: contentType,
+      ...(metadata ? { Metadata: metadata } : {}),
     });
 
     return getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
+  }
+
+  async doesObjectExist(bucket: string, key: string): Promise<boolean> {
+    try {
+      await this.s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+      return true;
+    } catch (err: any) {
+      if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) return false;
+      throw err;
+    }
+  }
+
+  async getObjectAsString(bucket: string, key: string): Promise<string> {
+    const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+    const response = await this.s3Client.send(command);
+    return await response.Body?.transformToString() || '';
   }
 }

@@ -11,25 +11,12 @@ describe("S3ClientWrapper", () => {
   it("should call getSignedUrl with correct params", async () => {
     (getSignedUrl as jest.Mock).mockResolvedValue("https://mocked.url");
 
-    const s3ClientWrapper = new S3ClientWrapper({
-      UPLOAD_BUCKET_NAME: "test-bucket",
-      REGION,
-      DEBUG: false,
-    }, s3);
+    const s3ClientWrapper = new S3ClientWrapper(s3);
 
-    const url = await s3ClientWrapper.generatePresignedUrl("123", "image/png");
+    const url = await s3ClientWrapper.generatePresignedUrl("test-bucket", "uploads/123/image/111.png", "image/png", { userId: "123" });
 
     expect(getSignedUrl).toHaveBeenCalled();
     expect(url).toBe("https://mocked.url");
   });
 
-  it("should throw an error if UPLOAD_BUCKET_NAME is not set", () => {
-    expect(() => {
-      new S3ClientWrapper({
-        UPLOAD_BUCKET_NAME: undefined,
-        REGION,
-        DEBUG: false,
-      }, s3);
-    }).toThrow("UPLOAD_BUCKET_NAME is not set");
-  });
 });

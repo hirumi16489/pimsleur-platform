@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Event resources for lesson audio and scripts
+Description: 'Events stack: Event resources for lesson audio and scripts'
 
 Parameters:
   StackName:
@@ -39,10 +39,7 @@ Resources:
               - !ImportValue UserUploadsBucket
           object:
             key:
-              prefix:
-                - "uploads/"
-              suffix:
-                - "metadata.json"
+              - wildcard: "uploads/*/metadata.json"
       Targets:
         - Arn: !GetAtt UploadEventsQueue.Arn
           Id: "UploadSqsTarget"
@@ -61,8 +58,8 @@ Resources:
             Resource: !GetAtt UploadEventsQueue.Arn
 
 Outputs:
-  UploadEventsQueue:
+  UploadEventsQueueArn:
     Description: Upload events queue
-    Value: !Ref UploadEventsQueue
+    Value: !GetAtt UploadEventsQueue.Arn
     Export:
-      Name: !Sub "${StackName}-UploadEventsQueue"
+      Name: UploadEventsQueueArn

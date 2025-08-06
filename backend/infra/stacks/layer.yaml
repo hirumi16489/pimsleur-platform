@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Layer stack: Shared config for Lambdas'
+
+Parameters:
+  StackName:
+    Type: String
+    Description: The name of stack
+
+Resources:
+  ConfigLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: config-layer
+      Description: Shared config for Lambdas
+      ContentUri: ../../layer-config
+      CompatibleRuntimes:
+        - nodejs20.x
+
+Outputs:
+  ConfigLayerArn:
+    Description: ARN of the config layer
+    Value: !Ref ConfigLayer
+    Export:
+      Name: ConfigLayerArn

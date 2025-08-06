@@ -9,4 +9,8 @@ cd - > /dev/null
 
 # Run SAM build from project root
 echo "🏗️ Building SAM application..."
+cfn-lint infra/template.yaml
+sam validate -t infra/template.yaml
+
+echo "✅ All checks passed"
 sam build --template infra/template.yaml

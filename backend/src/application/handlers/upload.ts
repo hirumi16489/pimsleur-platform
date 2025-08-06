@@ -3,17 +3,17 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult
 } from 'aws-lambda';
-import { FileService } from '../services/FileService';
+import { FileService } from '../../domain/file/FileService';
 import { S3Client } from '@aws-sdk/client-s3';
-import getConfig from '../helpers/config';
-import { S3ClientWrapper } from '../infrastructure/S3Client';
-import { UploadUrlProvider } from '../services/ports/UploadUrlProvider';
+import { getConfig } from '../helpers/config';
+import { S3ClientWrapper } from '../../infrastructure/S3Client';
+import { UploadUrlProvider } from '../../domain/file/ports/UploadUrlProvider';
 
 const allowedMimeTypes = ['text/plain', 'image/jpeg', 'image/png'];
 const config = getConfig();
 const s3 = new S3Client({ region: config.REGION });
-const uploadUrlProvider: UploadUrlProvider = new S3ClientWrapper(config, s3);
-const fileService = new FileService(uploadUrlProvider); 
+const uploadUrlProvider: UploadUrlProvider = new S3ClientWrapper(s3);
+const fileService = new FileService(uploadUrlProvider);
 
 export const handler: APIGatewayProxyHandler = async (
   event: APIGatewayProxyEvent
@@ -37,7 +37,14 @@ export const handler: APIGatewayProxyHandler = async (
       };
     }
 
-    const presignUrl = await fileService.generateUploadUrl(userId, fileType);
+    if (!config.UPLOAD_BUCKET_NAME) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ message: 'UPLOAD_BUCKET_NAME is not set' })
+      };
+    }
+
+    const presignUrl = await fileService.getUserUploadUrl(config.UPLOAD_BUCKET_NAME, userId, fileType);
     return {
       statusCode: 200,
       body: presignUrl

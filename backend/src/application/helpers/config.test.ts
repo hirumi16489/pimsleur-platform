@@ -24,7 +24,7 @@ describe('getConfig returns correct config for each NODE_ENV', () => {
 
   it('returns dev config by default', () => {
     delete process.env.NODE_ENV;
-    const getConfig = require('./config').default;
+    const getConfig = require('./config').getConfig;
     const config = getConfig();
     expect(config).toEqual({
       UPLOAD_BUCKET_NAME: 'pimsleur-platform-user-uploads',
@@ -35,7 +35,7 @@ describe('getConfig returns correct config for each NODE_ENV', () => {
 
   it('returns prod config when NODE_ENV=prod', () => {
     process.env.NODE_ENV = 'prod';
-    const getConfig = require('./config').default;
+    const getConfig = require('./config').getConfig;
     const config = getConfig();
     expect(config).toEqual({
       UPLOAD_BUCKET_NAME: 'prod-pimsleur-platform-user-uploads',
@@ -46,7 +46,7 @@ describe('getConfig returns correct config for each NODE_ENV', () => {
 
   it('returns test config when NODE_ENV=test', () => {
     process.env.NODE_ENV = 'test';
-    const getConfig = require('./config').default;
+    const getConfig = require('./config').getConfig;
     const config = getConfig();
     expect(config).toEqual({
       UPLOAD_BUCKET_NAME: 'test-bucket',

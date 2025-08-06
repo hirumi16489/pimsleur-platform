@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Storage resources for lesson audio and scripts
+Description: 'Storage stack: S3 buckets for lesson audio and scripts'
 
 Parameters:
   StackName:
@@ -35,7 +35,6 @@ Resources:
 
 Outputs:
   UserUploadsBucket:
-    Description: User uploads bucket
     Value: !Ref UserUploadsBucket
     Export:
-      Name: UserUploadsBucket
+      Name: UserUploadsBucket 

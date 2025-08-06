@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Database resources for Pimsleur Platform
+Description: 'Database stack: DynamoDB tables for Pimsleur Platform'
 
 Parameters:
   StackName:

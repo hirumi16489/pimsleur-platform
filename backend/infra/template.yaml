@@ -20,9 +20,15 @@ Globals:
     Runtime: nodejs18.x
     Architectures:
       - x86_64
+    Environment:
+      Variables:
+        NODE_ENV: !Ref Stage
+        REGION: !Ref AWS::Region
+        STAGE: !Ref Stage
 
 Resources:
   # --- Infrastructure Stacks ---
+
   NetworkStack:
     Type: AWS::Serverless::Application
     Properties:
@@ -55,11 +61,24 @@ Resources:
       Location: stacks/database.yaml
       Parameters:
         StackName: !Ref StackName
+  LessonProcessingStack:
+    Type: AWS::Serverless::Application
+    DependsOn: [EventsStack, LayerStack]
+    Properties:
+      Location: stacks/statemachines/lessonProcessingStateMachine.yaml
+      Parameters:
+        StackName: !Ref StackName
   ApiStack:
     Type: AWS::Serverless::Application
-    DependsOn: [AuthStack, StorageStack, EventsStack, DbStack]
+    DependsOn: [AuthStack, StorageStack, EventsStack, DbStack, LessonProcessingStack, LayerStack]
     Properties:
       Location: stacks/api.yaml
       Parameters:
         Stage: !Ref Stage
+        StackName: !Ref StackName
+  LayerStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: stacks/layer.yaml
+      Parameters:
         StackName: !Ref StackName
