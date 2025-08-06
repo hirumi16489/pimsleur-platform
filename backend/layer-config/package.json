@@ -6,6 +6,7 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.711.0",
     "zod": "^3.24.2"
   }
 }

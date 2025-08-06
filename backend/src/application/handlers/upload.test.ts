@@ -1,8 +1,8 @@
-import { handler } from "../../src/handlers/upload";
+import { handler } from "./upload";
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context, Callback } from "aws-lambda";
-import { FileService } from "../../src/services/FileService";
+import { FileService } from "../../domain/fileUpload/FileService";
 
-jest.mock("../../src/services/FileService");
+jest.mock("../../domain/fileUpload/FileService");
 
 describe("uploadPresignHandler", () => {
   const mockEvent = {

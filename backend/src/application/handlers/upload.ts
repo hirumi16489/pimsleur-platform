@@ -3,17 +3,17 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult
 } from 'aws-lambda';
-import { FileService } from '../services/FileService';
+import { FileService } from '../../domain/fileUpload/FileService';
 import { S3Client } from '@aws-sdk/client-s3';
-import getConfig from '../helpers/config';
-import { S3ClientWrapper } from '../infrastructure/S3Client';
-import { UploadUrlProvider } from '../services/ports/UploadUrlProvider';
+import { getConfig } from '../helpers/config';
+import { S3ClientWrapper } from '../../infrastructure/S3Client';
+import { UploadUrlProvider } from '../../domain/fileUpload/ports/UploadUrlProvider';
 
 const allowedMimeTypes = ['text/plain', 'image/jpeg', 'image/png'];
 const config = getConfig();
 const s3 = new S3Client({ region: config.REGION });
 const uploadUrlProvider: UploadUrlProvider = new S3ClientWrapper(config, s3);
-const fileService = new FileService(uploadUrlProvider); 
+const fileService = new FileService(uploadUrlProvider);
 
 export const handler: APIGatewayProxyHandler = async (
   event: APIGatewayProxyEvent

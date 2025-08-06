@@ -49,7 +49,7 @@ Resources:
       BuildMethod: esbuild
     Properties:
       FunctionName: s3-upload-presign-url
-      CodeUri: ../../src/handlers
+      CodeUri: ../../src/application/handlers
       Handler: upload.handler
       Runtime: nodejs20.x
       Layers:
@@ -81,3 +81,8 @@ Outputs:
     Value: !Ref PimsleurApi
     Export:
       Name: PimsleurApiId
+  ConfigLayerArn:
+    Description: ARN of the config layer
+    Value: !Ref ConfigLayer
+    Export:
+      Name: ConfigLayerArn

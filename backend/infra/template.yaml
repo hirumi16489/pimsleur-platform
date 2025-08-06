@@ -55,6 +55,10 @@ Resources:
       Location: stacks/database.yaml
       Parameters:
         StackName: !Ref StackName
+  LessonProcessingStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: stacks/statemachines/lessonProcessingStateMachine.yaml
   ApiStack:
     Type: AWS::Serverless::Application
     DependsOn: [AuthStack, StorageStack, EventsStack, DbStack]

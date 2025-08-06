@@ -1,6 +1,6 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { ConfigType } from '../helpers/config';
+import { ConfigType } from '../application/helpers/config';
 
 export class S3ClientWrapper {
   private readonly s3Client: S3Client;

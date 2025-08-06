@@ -1,4 +1,4 @@
-import { FileService } from "../../src/services/FileService";
+import { FileService } from "./FileService";
 
 describe("uploadService", () => {
   it("should return a presigned URL", async () => {

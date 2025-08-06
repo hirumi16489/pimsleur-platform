@@ -9,9 +9,9 @@ export enum JLPTLevel {
 }
 
 export enum DictionaryType {
-  Vocab = "vocab",
-  Kanji = "kanji",
-  Expression = "expression",
+  VOCAB = "VOCAB",
+  KANJI = "KANJI",
+  EXPRESSION = "EXPRESSION",
 }
 
 export const GlobalDictionarySchema = z.object({

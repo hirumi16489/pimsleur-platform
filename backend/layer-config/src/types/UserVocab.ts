@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 export enum WordStatus {
-  Unseen = "unseen",
-  Learning = "learning",
-  Mastered = "mastered",
+  UNSEEN = "UNSEEN",
+  LEARNING = "LEARNING",
+  MASTERED = "MASTERED",
 }
 
 export const UserVocabSchema = z.object({

@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lesson Processing State Machine
+
+Resources:
+  LessonProcessingStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: lesson-processing
+      RoleArn: !GetAtt LessonProcessingStateMachineRole.Arn
+      Definition:
+        Comment: "Lesson processing with external text extraction worker"
+        StartAt: ExtractText
+        States:
+          ExtractText:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke.waitForTaskToken
+            Parameters:
+              FunctionName: !GetAtt SubmitExtractTextTaskFunction.Arn
+              Payload:
+                taskToken.$: "$$.Task.Token"
+                input.$: "$"
+            TimeoutSeconds: 86400 # 24 hours wait
+            End: true
+
+  SubmitExtractTextTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: submit-extract-text-task
+      CodeUri: ../../src/handlers/submitExtractTextTask/
+      Handler: app.handler
+      Runtime: nodejs20.x
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue LessonProcessingStepsTableName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ExtractTextQueue.QueueName
+      Environment:
+        Variables:
+          LESSON_PROCESSING_TABLE: !ImportValue LessonProcessingStepsTableName
+          EXTRACT_TEXT_QUEUE_URL: !Ref ExtractTextQueue
+
+  ExtractTextQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: extract-text-jobs
+      VisibilityTimeout: 900
+
+  LessonProcessingStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AllowInvokeLambda
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: "*"
