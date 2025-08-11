@@ -11,7 +11,7 @@ Resources:
   UserUploadsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "${StackName}-user-uploads"
+      BucketName: !Sub '${StackName}-user-uploads'
       NotificationConfiguration:
         EventBridgeConfiguration:
           EventBridgeEnabled: true
@@ -37,4 +37,4 @@ Outputs:
   UserUploadsBucket:
     Value: !Ref UserUploadsBucket
     Export:
-      Name: UserUploadsBucket 
+      Name: UserUploadsBucket

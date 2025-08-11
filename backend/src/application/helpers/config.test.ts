@@ -1,7 +1,7 @@
 describe('getConfig returns correct config for each NODE_ENV', () => {
   beforeEach(() => {
     jest.resetModules();
-    jest.doMock('layer-config', () => ({
+    jest.doMock('../../shared', () => ({
       config: {
         dev: {
           UPLOAD_BUCKET_NAME: 'pimsleur-platform-user-uploads',
@@ -22,9 +22,9 @@ describe('getConfig returns correct config for each NODE_ENV', () => {
     }));
   });
 
-  it('returns dev config by default', () => {
+  it('returns dev config by default', async () => {
     delete process.env.NODE_ENV;
-    const getConfig = require('./config').getConfig;
+    const getConfig = (await import('./config')).getConfig;
     const config = getConfig();
     expect(config).toEqual({
       UPLOAD_BUCKET_NAME: 'pimsleur-platform-user-uploads',
@@ -33,9 +33,9 @@ describe('getConfig returns correct config for each NODE_ENV', () => {
     });
   });
 
-  it('returns prod config when NODE_ENV=prod', () => {
+  it('returns prod config when NODE_ENV=prod', async () => {
     process.env.NODE_ENV = 'prod';
-    const getConfig = require('./config').getConfig;
+    const getConfig = (await import('./config')).getConfig;
     const config = getConfig();
     expect(config).toEqual({
       UPLOAD_BUCKET_NAME: 'prod-pimsleur-platform-user-uploads',
@@ -44,9 +44,9 @@ describe('getConfig returns correct config for each NODE_ENV', () => {
     });
   });
 
-  it('returns test config when NODE_ENV=test', () => {
+  it('returns test config when NODE_ENV=test', async () => {
     process.env.NODE_ENV = 'test';
-    const getConfig = require('./config').getConfig;
+    const getConfig = (await import('./config')).getConfig;
     const config = getConfig();
     expect(config).toEqual({
       UPLOAD_BUCKET_NAME: 'test-bucket',

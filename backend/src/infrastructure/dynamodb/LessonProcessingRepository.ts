@@ -2,14 +2,17 @@ import {
   DynamoDBClient,
   GetItemCommand,
   PutItemCommand,
-  UpdateItemCommand
-} from "@aws-sdk/client-dynamodb";
-import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { LessonProcessingRepository } from "../../domain/lessonProcessing/ports/LessonProcessingRepository";
-import { LessonProcessingSchema, LessonProcessingStatus } from "layer-config";
+  UpdateItemCommand,
+} from '@aws-sdk/client-dynamodb';
+import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+import { LessonProcessingRepository } from '../../domain/lessonProcessing/ports/LessonProcessingRepository';
+import { LessonProcessingSchema, LessonProcessingStatus } from '../../shared';
 
 export class DynamoLessonProcessingRepository implements LessonProcessingRepository {
-  constructor(private tableName: string, private dynamo: DynamoDBClient) {}
+  constructor(
+    private tableName: string,
+    private dynamo: DynamoDBClient
+  ) { }
 
   async markInProgress(userId: string, lessonId: string, step: string): Promise<void> {
     const item = {
@@ -19,12 +22,14 @@ export class DynamoLessonProcessingRepository implements LessonProcessingReposit
       status: LessonProcessingStatus.IN_PROGRESS,
       lastUpdated: new Date().toISOString(),
     };
-		const parsedItem = LessonProcessingSchema.parse(item);
+    const parsedItem = LessonProcessingSchema.parse(item);
 
-    await this.dynamo.send(new PutItemCommand({
-      TableName: this.tableName,
-      Item: marshall(parsedItem),
-    }));
+    await this.dynamo.send(
+      new PutItemCommand({
+        TableName: this.tableName,
+        Item: marshall(parsedItem),
+      })
+    );
   }
 
   async markCompleted(userId: string, lessonId: string, step: string): Promise<void> {
@@ -35,12 +40,18 @@ export class DynamoLessonProcessingRepository implements LessonProcessingReposit
     await this.updateStatus(userId, lessonId, step, LessonProcessingStatus.FAILED, error);
   }
 
-  async getStatus(userId: string, lessonId: string, step: string): Promise<LessonProcessingStatus | null> {
+  async getStatus(
+    userId: string,
+    lessonId: string,
+    step: string
+  ): Promise<LessonProcessingStatus | null> {
     const parsedKeys = LessonProcessingSchema.parse({ userId, lessonId, step });
-    const result = await this.dynamo.send(new GetItemCommand({
-      TableName: this.tableName,
-      Key: marshall(parsedKeys),
-    }));
+    const result = await this.dynamo.send(
+      new GetItemCommand({
+        TableName: this.tableName,
+        Key: marshall(parsedKeys),
+      })
+    );
     if (!result.Item) return null;
     const item = unmarshall(result.Item);
     return item.status as LessonProcessingStatus;
@@ -54,21 +65,23 @@ export class DynamoLessonProcessingRepository implements LessonProcessingReposit
     error?: string
   ) {
     const updateExp = error
-      ? "SET #s = :s, error = :e, lastUpdated = :lu"
-      : "SET #s = :s, lastUpdated = :lu";
+      ? 'SET #s = :s, error = :e, lastUpdated = :lu'
+      : 'SET #s = :s, lastUpdated = :lu';
 
     const expValues = error
-      ? { ":s": status, ":e": error, ":lu": new Date().toISOString() }
-      : { ":s": status, ":lu": new Date().toISOString() };
+      ? { ':s': status, ':e': error, ':lu': new Date().toISOString() }
+      : { ':s': status, ':lu': new Date().toISOString() };
 
     const parsedItem = LessonProcessingSchema.parse({ userId, lessonId, step, status, error });
 
-    await this.dynamo.send(new UpdateItemCommand({
-      TableName: this.tableName,
-      Key: marshall(parsedItem),
-      UpdateExpression: updateExp,
-      ExpressionAttributeNames: { "#s": "status" },
-      ExpressionAttributeValues: marshall(expValues),
-    }));
+    await this.dynamo.send(
+      new UpdateItemCommand({
+        TableName: this.tableName,
+        Key: marshall(parsedItem),
+        UpdateExpression: updateExp,
+        ExpressionAttributeNames: { '#s': 'status' },
+        ExpressionAttributeValues: marshall(expValues),
+      })
+    );
   }
 }

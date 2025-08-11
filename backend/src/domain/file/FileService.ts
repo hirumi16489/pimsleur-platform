@@ -1,11 +1,11 @@
 import { UploadUrlProvider } from './ports/UploadUrlProvider';
-import { v4 as uuidv4, v7 as uuidv7, validate as uuidValidate } from 'uuid';
+import { validateLessonId, validateUserId } from './validation';
 
 export type MetadataFile = {
   lessonId: string;
   userId: string;
   files: string[];
-}
+};
 
 export class FileService {
   private readonly uploadUrlProvider: UploadUrlProvider;
@@ -15,14 +15,33 @@ export class FileService {
   }
 
   async getUploadMetadataUrl(bucket: string, userId: string, lessonId: string): Promise<string> {
+    if (!validateLessonId(lessonId)) {
+      throw new Error(`Invalid lesson ID format: ${lessonId}. Expected format: lesson#uuid`);
+    }
+    if (!validateUserId(userId)) {
+      throw new Error(`Invalid user ID format: ${userId}. Expected format: user#id`);
+    }
+
     const key = `uploads/${userId}/${lessonId}/metadata.json`;
     return this.uploadUrlProvider.generatePresignedUrl(bucket, key, 'application/json');
   }
 
-  async getUserUploadUrl(bucket: string, userId: string, fileType: string): Promise<string> {
+  async getUserUploadUrl(
+    bucket: string,
+    userId: string,
+    lessonId: string,
+    fileType: string
+  ): Promise<string> {
+    if (!validateLessonId(lessonId)) {
+      throw new Error(`Invalid lesson ID format: ${lessonId}. Expected format: lesson#uuid`);
+    }
+    if (!validateUserId(userId)) {
+      throw new Error(`Invalid user ID format: ${userId}. Expected format: user#id`);
+    }
+
     const [type, ext] = fileType.split('/');
     const time = Date.now();
-    const key = `uploads/${userId}/lesson#${uuidv7()}/original/${type}/${time}.${ext}`;
+    const key = `uploads/${userId}/${lessonId}/original/${type}/${time}.${ext}`;
     const metadata = { userId: `${userId}` };
     return this.uploadUrlProvider.generatePresignedUrl(bucket, key, fileType, metadata);
   }
@@ -34,11 +53,8 @@ export class FileService {
 
   async areAllFilesUploaded(bucket: string, metadata: MetadataFile): Promise<boolean> {
     const checks = await Promise.all(
-      metadata.files.map((file: string) =>
-        this.uploadUrlProvider.doesObjectExist(bucket, file)
-      )
+      metadata.files.map((file: string) => this.uploadUrlProvider.doesObjectExist(bucket, file))
     );
     return checks.every(Boolean);
   }
 }
-

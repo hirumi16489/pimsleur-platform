@@ -1,4 +1,4 @@
-import { LessonProcessingStatus } from "layer-config/src/types/LessonProcessing";
+import { LessonProcessingStatus } from '../../../shared/types/LessonProcessing';
 
 export interface LessonProcessingRepository {
   markInProgress(userId: string, lessonId: string, step: string): Promise<void>;

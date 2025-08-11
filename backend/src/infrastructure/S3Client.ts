@@ -1,5 +1,10 @@
-import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import {
+  S3Client,
+  PutObjectCommand,
+  HeadObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export class S3ClientWrapper {
   private readonly s3Client: S3Client;
@@ -8,7 +13,12 @@ export class S3ClientWrapper {
     this.s3Client = s3Client;
   }
 
-  async generatePresignedUrl(bucket: string, key: string, contentType: string, metadata?: Record<string, string>): Promise<string> {
+  async generatePresignedUrl(
+    bucket: string,
+    key: string,
+    contentType: string,
+    metadata?: Record<string, string>
+  ): Promise<string> {
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
@@ -24,7 +34,7 @@ export class S3ClientWrapper {
       await this.s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
       return true;
     } catch (err: any) {
-      if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) return false;
+      if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) return false;
       throw err;
     }
   }
@@ -32,6 +42,6 @@ export class S3ClientWrapper {
   async getObjectAsString(bucket: string, key: string): Promise<string> {
     const command = new GetObjectCommand({ Bucket: bucket, Key: key });
     const response = await this.s3Client.send(command);
-    return await response.Body?.transformToString() || '';
+    return (await response.Body?.transformToString()) || '';
   }
 }

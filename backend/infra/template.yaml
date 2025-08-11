@@ -13,7 +13,27 @@ Parameters:
   StackName:
     Type: String
     Description: The name of the stack
-
+  ApiCustomDomain:
+    Type: String
+    Description: 'e.g. api.pimsleur.dragoneertechnology.com'
+  ApiCertificateArn:
+    Type: String
+    Description: "ACM ARN in the API's region (Regional cert)"
+  HostedZoneId:
+    Type: String
+    Description: 'Public hosted zone ID for dragoneertechnology.com'
+  CustomCognitoDomain:
+    Type: String
+    Description: 'e.g. auth.pimsleur.dragoneertechnology.com'
+  UsEast1CertArnForCognito:
+    Type: String
+    Description: 'ACM ARN in us-east-1 for the custom domain'
+  CallbackUrls:
+    Type: String
+    Description: 'Callback URLs for the custom domain'
+  LogoutUrls:
+    Type: String
+    Description: 'Logout URLs for the custom domain'
 Globals:
   Function:
     Timeout: 10
@@ -28,7 +48,6 @@ Globals:
 
 Resources:
   # --- Infrastructure Stacks ---
-
   NetworkStack:
     Type: AWS::Serverless::Application
     Properties:
@@ -41,6 +60,11 @@ Resources:
       Location: stacks/auth.yaml
       Parameters:
         StackName: !Ref StackName
+        CustomCognitoDomain: !Ref CustomCognitoDomain
+        UsEast1CertArnForCognito: !Ref UsEast1CertArnForCognito
+        HostedZoneId: !Ref HostedZoneId
+        CallbackUrls: !Ref CallbackUrls
+        LogoutUrls: !Ref LogoutUrls
   StorageStack:
     Type: AWS::Serverless::Application
     DependsOn: AuthStack
@@ -63,22 +87,20 @@ Resources:
         StackName: !Ref StackName
   LessonProcessingStack:
     Type: AWS::Serverless::Application
-    DependsOn: [EventsStack, LayerStack]
+    DependsOn: [EventsStack]
     Properties:
       Location: stacks/statemachines/lessonProcessingStateMachine.yaml
       Parameters:
         StackName: !Ref StackName
   ApiStack:
     Type: AWS::Serverless::Application
-    DependsOn: [AuthStack, StorageStack, EventsStack, DbStack, LessonProcessingStack, LayerStack]
+    DependsOn: [AuthStack, StorageStack, EventsStack, DbStack, LessonProcessingStack]
     Properties:
       Location: stacks/api.yaml
       Parameters:
         Stage: !Ref Stage
         StackName: !Ref StackName
-  LayerStack:
-    Type: AWS::Serverless::Application
-    Properties:
-      Location: stacks/layer.yaml
-      Parameters:
-        StackName: !Ref StackName
+        ApiCustomDomain: !Ref ApiCustomDomain
+        ApiCertificateArn: !Ref ApiCertificateArn
+        HostedZoneId: !Ref HostedZoneId
+

@@ -11,7 +11,7 @@ Resources:
   UploadEventsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: !Sub "${StackName}-upload-events-queue"
+      QueueName: !Sub '${StackName}-upload-events-queue'
       VisibilityTimeout: 300
       MessageRetentionPeriod: 86400 # 1 day
       RedrivePolicy:
@@ -21,7 +21,7 @@ Resources:
   UploadEventsDLQ:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: !Sub "${StackName}-upload-events-dlq"
+      QueueName: !Sub '${StackName}-upload-events-dlq'
       VisibilityTimeout: 300
       MessageRetentionPeriod: 1209600 # 14 days
 
@@ -30,31 +30,31 @@ Resources:
     Properties:
       EventPattern:
         source:
-          - "aws.s3"
+          - 'aws.s3'
         detail-type:
-          - "Object Created"
+          - 'Object Created'
         detail:
           bucket:
             name:
               - !ImportValue UserUploadsBucket
           object:
             key:
-              - wildcard: "uploads/*/metadata.json"
+              - wildcard: 'uploads/*/metadata.json'
       Targets:
         - Arn: !GetAtt UploadEventsQueue.Arn
-          Id: "UploadSqsTarget"
+          Id: 'UploadSqsTarget'
   UploadEventQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
       Queues:
         - !Ref UploadEventsQueue
       PolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
-              Service: "events.amazonaws.com"
-            Action: "sqs:SendMessage"
+              Service: 'events.amazonaws.com'
+            Action: 'sqs:SendMessage'
             Resource: !GetAtt UploadEventsQueue.Arn
 
 Outputs:

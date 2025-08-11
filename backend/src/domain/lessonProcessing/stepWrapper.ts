@@ -1,6 +1,6 @@
-import { LessonProcessingStatus } from "layer-config";
-import type { DynamoLessonProcessingRepository } from "../../infrastructure/dynamodb/LessonProcessingRepository";
-import { z } from "zod";
+import { LessonProcessingStatus } from '../../shared';
+import type { DynamoLessonProcessingRepository } from '../../infrastructure/dynamodb/LessonProcessingRepository';
+import { z } from 'zod';
 
 type StepHandler<TEvent = any, TResult = any> = (event: TEvent) => Promise<TResult>;
 
@@ -10,20 +10,18 @@ const TextExtractionEventSchema = z.object({
   taskToken: z.string(),
 });
 
-export function createStepWrapper(
-  repo: DynamoLessonProcessingRepository,
-) {
+export function createStepWrapper(repo: DynamoLessonProcessingRepository) {
   return function stepWrapper<TEvent, TResult>(
     stepName: string,
     handler: StepHandler<TEvent, TResult>,
     options?: { asyncTask?: boolean }
   ) {
     return async (event: TEvent) => {
-      const parsedEvent = TextExtractionEventSchema.parse(event)
+      const parsedEvent = TextExtractionEventSchema.parse(event);
       const { userId, lessonId, taskToken } = parsedEvent;
 
-      if (typeof stepName !== "string") {
-        throw new Error("stepName must be a string");
+      if (typeof stepName !== 'string') {
+        throw new Error('stepName must be a string');
       }
 
       // 1. Check current step status
@@ -33,7 +31,7 @@ export function createStepWrapper(
         throw new Error(`Step "${stepName}" already in progress`);
       }
       if (status === LessonProcessingStatus.COMPLETED) {
-        return { status: "SKIPPED" };
+        return { status: 'SKIPPED' };
       }
 
       // 2. Mark in progress

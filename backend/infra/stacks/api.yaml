@@ -13,6 +13,15 @@ Parameters:
   StackName:
     Type: String
     Description: The name of stack
+  ApiCustomDomain:
+    Type: String
+    Description: 'e.g. api.pimsleur.dragoneertechnology.com'
+  ApiCertificateArn:
+    Type: String
+    Description: "ACM ARN in the API's region (Regional cert)"
+  HostedZoneId:
+    Type: String
+    Description: 'Public hosted zone ID for dragoneertechnology.com'
 
 Globals:
   Function:
@@ -22,10 +31,30 @@ Globals:
       - x86_64
 
 Resources:
-
   # Shared API Gateway
+  ApiExecutionLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/apigw/${StackName}/${Stage}/execution'
+      RetentionInDays: 14
+  ApiGatewayCWLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: apigateway.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayCWLogsRole.Arn
   PimsleurApi:
     Type: AWS::Serverless::Api
+    DependsOn: ApiGatewayAccount
     Properties:
       Name: PimsleurApi
       StageName: !Ref Stage
@@ -35,6 +64,24 @@ Resources:
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !ImportValue CognitoUserPoolArn
+      Domain:
+        DomainName: !Ref ApiCustomDomain
+        CertificateArn: !Ref ApiCertificateArn
+        EndpointConfiguration: REGIONAL
+        SecurityPolicy: TLS_1_2
+        BasePath: ''
+        Route53:
+          HostedZoneId: !Ref HostedZoneId
+          EvaluateTargetHealth: false
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiExecutionLogs.Arn
+        Format: '{"requestId":"$context.requestId","status":$context.status,"integrationStatus":"$context.integrationStatus","authorizerError":"$context.authorizer.error","principalId":"$context.authorizer.principalId","path":"$context.path","httpMethod":"$context.httpMethod","ip":"$context.identity.sourceIp","ua":"$context.identity.userAgent","integrationError":"$context.integrationErrorMessage"}'
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          MetricsEnabled: true
+          LoggingLevel: INFO # set ERROR for less noise
+          DataTraceEnabled: true # shows request/response lines (turn off after debugging)
   S3UploadPresignUrlFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -42,27 +89,55 @@ Resources:
     Properties:
       FunctionName: s3-upload-presign-url
       CodeUri: ../../src/application/handlers
-      Handler: upload.handler
+      Handler: s3UploadPresignUrl.handler
       Runtime: nodejs20.x
-      Layers:
-        - !ImportValue ConfigLayerArn
       Environment:
         Variables:
           UPLOAD_BUCKET: !ImportValue UserUploadsBucket
       VpcConfig:
         SecurityGroupIds:
           - !ImportValue
-            Fn::Sub: "${StackName}-SecurityGroupId"
+            Fn::Sub: '${StackName}-SecurityGroupId'
         SubnetIds: !Split
           - ','
           - !ImportValue
-            Fn::Sub: "${StackName}-PrivateSubnetIds"
+            Fn::Sub: '${StackName}-PrivateSubnetIds'
       Events:
         Presign:
           Type: Api
           Properties:
             Path: /s3-upload-presign
-            Method: GET
+            Method: POST
+            RestApiId: !Ref PimsleurApi
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  UploadMetadataPresignUrlFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+    Properties:
+      FunctionName: s3-upload-metadata-presign-url
+      CodeUri: ../../src/application/handlers
+      Handler: uploadMetadataPresignUrl.handler
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          UPLOAD_BUCKET: !ImportValue UserUploadsBucket
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: '${StackName}-SecurityGroupId'
+        SubnetIds: !Split
+          - ','
+          - !ImportValue
+            Fn::Sub: '${StackName}-PrivateSubnetIds'
+      Events:
+        PresignMetadata:
+          Type: Api
+          Properties:
+            Path: /s3-upload-metadata-presign
+            Method: POST
             RestApiId: !Ref PimsleurApi
             Auth:
               Authorizer: CognitoAuthorizer

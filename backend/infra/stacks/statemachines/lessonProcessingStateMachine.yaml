@@ -16,7 +16,7 @@ Resources:
       StateMachineName: lesson-processing
       RoleArn: !GetAtt LessonProcessingStateMachineRole.Arn
       Definition:
-        Comment: "Lesson processing with external text extraction worker"
+        Comment: 'Lesson processing with external text extraction worker'
         StartAt: ExtractText
         States:
           ExtractText:
@@ -25,8 +25,8 @@ Resources:
             Parameters:
               FunctionName: !GetAtt SubmitExtractTextTaskFunction.Arn
               Payload:
-                taskToken.$: "$$.Task.Token"
-                input.$: "$"
+                taskToken.$: '$$.Task.Token'
+                input.$: '$'
             TimeoutSeconds: 86400 # 24 hours wait
             End: true
 
@@ -41,8 +41,6 @@ Resources:
       Runtime: nodejs20.x
       MemorySize: 128
       Timeout: 10
-      Layers:
-        - !ImportValue ConfigLayerArn
       Environment:
         Variables:
           STEP_FUNCTION_ARN: !GetAtt LessonProcessingStateMachine.Arn
@@ -52,17 +50,17 @@ Resources:
         - AmazonS3ReadOnlyAccess
         - AmazonDynamoDBFullAccess
         - Statement:
-          - Effect: Allow
-            Action:
-              - s3:GetObject
-              - s3:HeadObject
-            Resource: !Sub
-              - "arn:aws:s3:::${BucketName}/uploads/*"
-              - { BucketName: !ImportValue UserUploadsBucket }
-          - Effect: Allow
-            Action:
-              - states:StartExecution
-            Resource: !GetAtt LessonProcessingStateMachine.Arn
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:HeadObject
+              Resource: !Sub
+                - 'arn:aws:s3:::${BucketName}/uploads/*'
+                - { BucketName: !ImportValue UserUploadsBucket }
+            - Effect: Allow
+              Action:
+                - states:StartExecution
+              Resource: !GetAtt LessonProcessingStateMachine.Arn
       Events:
         SQSMessage:
           Type: SQS
@@ -95,7 +93,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
@@ -104,12 +102,12 @@ Resources:
       Policies:
         - PolicyName: AllowInvokeLambda
           PolicyDocument:
-            Version: "2012-10-17"
+            Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                Resource: "*"
+                Resource: '*'
 
 Outputs:
   LessonProcessingStateMachineArn:

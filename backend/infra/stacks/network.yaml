@@ -16,7 +16,7 @@ Resources:
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: !Sub "${StackName}-vpc"
+          Value: !Sub '${StackName}-vpc'
 
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
@@ -26,7 +26,7 @@ Resources:
       AvailabilityZone: !Select [0, !GetAZs '']
       Tags:
         - Key: Name
-          Value: !Sub "${StackName}-private-subnet-1"
+          Value: !Sub '${StackName}-private-subnet-1'
 
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
@@ -36,7 +36,7 @@ Resources:
       AvailabilityZone: !Select [1, !GetAZs '']
       Tags:
         - Key: Name
-          Value: !Sub "${StackName}-private-subnet-2"
+          Value: !Sub '${StackName}-private-subnet-2'
 
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -52,16 +52,16 @@ Outputs:
     Description: VPC ID
     Value: !Ref VPC
     Export:
-      Name: !Sub "${StackName}-VPCId"
-  
+      Name: !Sub '${StackName}-VPCId'
+
   PrivateSubnetIds:
     Description: Private subnet IDs
     Value: !Join [',', [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
     Export:
-      Name: !Sub "${StackName}-PrivateSubnetIds"
-  
+      Name: !Sub '${StackName}-PrivateSubnetIds'
+
   SecurityGroupId:
     Description: Security group ID
     Value: !Ref SecurityGroup
     Export:
-      Name: !Sub "${StackName}-SecurityGroupId"
+      Name: !Sub '${StackName}-SecurityGroupId'

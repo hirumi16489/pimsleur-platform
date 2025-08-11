@@ -1,0 +1,318 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Next.js SSR on AWS — CloudFront + HTTP API + Lambda + S3 (OAC). Static assets on S3, SSR/APIs via API Gateway -> Lambda.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: pimsleur-ssr
+  StaticBucketName:
+    Type: String
+    Description: Globally-unique S3 bucket name for static assets (/_next/static and public/assets)
+  ServerCodeBucket:
+    Type: String
+    Description: S3 bucket that holds the server zip artifact (e.g., from OpenNext build)
+  ServerCodeKey:
+    Type: String
+    Description: S3 key for the server zip (e.g., pimsleur/server-function.zip)
+  ServerCodeVersion:
+    Type: String
+    Description: Version of the server code (e.g., 1.0.0)
+  PriceClass:
+    Type: String
+    Default: PriceClass_200
+    AllowedValues: [PriceClass_100, PriceClass_200, PriceClass_All]
+  AlternateDomainName:
+    Type: String
+    Default: ''
+    Description: Optional CloudFront alias (e.g., pimsleur.dragoneertechnology.com)
+  AcmCertificateArn:
+    Type: String
+    Default: ''
+    Description: ACM cert in us-east-1 that matches AlternateDomainName
+  HostedZoneId:
+    Type: String
+    Default: ''
+    Description: Optional Route53 Hosted Zone ID to create an A (Alias) for AlternateDomainName
+  EnableImageGuard:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: If true, attach a CloudFront Function to gate /_next/image by allow-listed hosts
+  ApiBase:
+    Type: String
+    Default: ''
+    Description: API base URL
+  CognitoClientId:
+    Type: String
+    Default: ''
+    Description: Cognito client ID
+  CognitoDomain:
+    Type: String
+    Default: ''
+    Description: Cognito domain
+  AppEnvironment:
+    Type: String
+    Default: 'dev'
+    AllowedValues: ['dev', 'staging', 'prod']
+    Description: Environment
+
+Mappings:
+  AppEnvMap:
+    dev:
+      NodeEnv: development
+    staging:
+      NodeEnv: production
+    prod:
+      NodeEnv: production
+
+Conditions:
+  HasAlias: !Not [!Equals [!Ref AlternateDomainName, '']]
+  HasCert: !Not [!Equals [!Ref AcmCertificateArn, '']]
+  HasDns: !And [!Condition HasAlias, !Not [!Equals [!Ref HostedZoneId, '']]]
+  GuardImages: !Equals [!Ref EnableImageGuard, 'true']
+
+Resources:
+  # --- Static assets bucket (private) ---
+  StaticBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref StaticBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerPreferred }]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      VersioningConfiguration: { Status: Enabled }
+
+  # --- CloudFront OAC for S3 ---
+  OAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${ProjectName}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # --- Lambda role for SSR ---
+  SsrRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-ssr-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # --- Lambda function (Next SSR) ---
+  SsrFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-ssr'
+      Role: !GetAtt SsrRole.Arn
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Timeout: 15
+      MemorySize: 1024
+      Code:
+        S3Bucket: !Ref ServerCodeBucket
+        S3Key: !Ref ServerCodeKey
+        S3ObjectVersion: !Ref ServerCodeVersion
+      Environment:
+        Variables:
+          NODE_ENV: !FindInMap [AppEnvMap, !Ref AppEnvironment, NodeEnv]
+          APP_ENV: !Ref AppEnvironment
+          API_BASE: !Ref ApiBase
+          COGNITO_DOMAIN: !Ref CognitoDomain
+          COGNITO_CLIENT_ID: !Ref CognitoClientId
+          ALTERNATE_DOMAIN_NAME: !Ref AlternateDomainName
+
+  # --- HTTP API (API Gateway v2) + Lambda proxy integration ---
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${ProjectName}-httpapi'
+      ProtocolType: HTTP
+
+  HttpApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SsrFunction.Arn}/invocations'
+      PayloadFormatVersion: '2.0'
+      TimeoutInMillis: 29000
+
+  HttpApiDefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: '$default'
+      Target: !Sub 'integrations/${HttpApiIntegration}'
+
+  HttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: '$default'
+      AutoDeploy: true
+
+  AllowInvokeFromApi:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SsrFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/$default'
+  # --- CloudFront cache & origin request policies ---
+  NextImageCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub '${ProjectName}-next-image'
+        DefaultTTL: 31536000
+        MaxTTL: 31536000
+        MinTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig: { HeaderBehavior: none }
+          CookiesConfig: { CookieBehavior: none }
+          QueryStringsConfig:
+            QueryStringBehavior: whitelist
+            QueryStrings: ['url', 'w', 'q']
+
+  # Optional guard function (off by default)
+  NextImageFunction:
+    Type: AWS::CloudFront::Function
+    Condition: GuardImages
+    Properties:
+      Name: !Sub '${ProjectName}-next-image-guard'
+      AutoPublish: true
+      FunctionConfig: { Comment: 'Guard /_next/image allowlist', Runtime: cloudfront-js-1.0 }
+      FunctionCode: |
+        function get(qs,k){return qs[k]&&qs[k].value||null}
+        function host(u){var m=/^https?:\/\/([^\/?#]+)/i.exec(u);return m?m[1].toLowerCase():null}
+        function handler(event){
+          var r=event.request; if(r.uri.indexOf('/_next/image')!==0) return r;
+          var qs=r.querystring||{}; var u=get(qs,'url'); if(!u) return {statusCode:400,statusDescription:'Missing url'};
+          var h=host(u); if(!h) return {statusCode:400,statusDescription:'Bad url'};
+          var allowed={'cdn.example.com':1,'images.unsplash.com':1}; // EDIT if you enable
+          if(!allowed[h]) return {statusCode:403,statusDescription:'Forbidden'};
+          var w=parseInt(get(qs,'w')||'0',10); if(w&&(w<16||w>4096)) return {statusCode:400,statusDescription:'Invalid width'};
+          return r;
+        }
+
+  # --- CloudFront Distribution with two origins ---
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub '${ProjectName} SSR site'
+        PriceClass: !Ref PriceClass
+        Aliases: !If [HasAlias, [!Ref AlternateDomainName], !Ref 'AWS::NoValue']
+        ViewerCertificate: !If
+          - HasCert
+          - {
+              AcmCertificateArn: !Ref AcmCertificateArn,
+              SslSupportMethod: sni-only,
+              MinimumProtocolVersion: TLSv1.2_2021,
+            }
+          - { CloudFrontDefaultCertificate: true }
+        Origins:
+          - Id: static-s3
+            DomainName: !GetAtt StaticBucket.RegionalDomainName
+            S3OriginConfig: {}
+            OriginAccessControlId: !Ref OAC
+          - Id: ssr-api
+            DomainName: !Select [2, !Split ['/', !GetAtt HttpApi.ApiEndpoint]] # e.g., abc.execute-api.us-east-1.amazonaws.com
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+        DefaultCacheBehavior:
+          TargetOriginId: ssr-api
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          Compress: true
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # AllViewerExceptHostHeader
+        CacheBehaviors:
+          # Next.js static assets
+          - PathPattern: '_next/static/*'
+            TargetOriginId: static-s3
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          # Public assets under /assets/* (put big images here)
+          - PathPattern: 'assets/*'
+            TargetOriginId: static-s3
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          # Next image optimizer
+          - PathPattern: '_next/image*'
+            TargetOriginId: ssr-api # hits your API Gateway/Lambda optimizer
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: !Ref NextImageCachePolicy
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # AllViewerExceptHostHeader
+            FunctionAssociations: !If
+              - GuardImages
+              - - EventType: viewer-request
+                  FunctionARN: !GetAtt NextImageFunction.FunctionMetadata.FunctionARN
+              - !Ref 'AWS::NoValue'
+
+  # Allow only CloudFront to read S3
+  StaticBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: ['s3:GetObject']
+            Resource: !Sub '${StaticBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+
+  # Optional Route53 record for the alias
+  CfaRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: HasDns
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref AlternateDomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2 # CloudFront hosted zone id (global)
+
+Outputs:
+  StaticBucketName:
+    Value: !Ref StaticBucket
+  CloudFrontDomain:
+    Value: !GetAtt Distribution.DomainName
+  ApiEndpoint:
+    Value: !GetAtt HttpApi.ApiEndpoint
+  SsrFunctionName:
+    Value: !Ref SsrFunction

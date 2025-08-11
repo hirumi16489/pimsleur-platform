@@ -30,9 +30,11 @@ export const handler: SQSHandler = async (event: SQSEvent) => {
 
     if (!allPresent) throw new Error('Some files missing, retrying...');
 
-    await stepFunctions.send(new StartExecutionCommand({
-      stateMachineArn: config.STEP_FUNCTION_ARN,
-      input: JSON.stringify({ lessonId: metadata.lessonId, userId: metadata.userId })
-    }));
+    await stepFunctions.send(
+      new StartExecutionCommand({
+        stateMachineArn: config.STEP_FUNCTION_ARN,
+        input: JSON.stringify({ lessonId: metadata.lessonId, userId: metadata.userId }),
+      })
+    );
   }
 };

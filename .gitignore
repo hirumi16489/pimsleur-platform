@@ -16,6 +16,11 @@ Thumbs.db
 # Environment files
 .env
 .env.*
+!.env.example
+
+# Next
+.open-next/
+.next/
 
 # Editor settings
 .vscode/
