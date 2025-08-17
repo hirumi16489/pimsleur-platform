@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Events stack: Event resources for lesson audio and scripts'
+
+Parameters:
+  StackName:
+    Type: String
+    Description: The name of stack
+
+Resources:
+  UploadEventsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${StackName}-upload-events-queue'
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 86400 # 1 day
+      RedrivePolicy:
+        maxReceiveCount: 3
+        deadLetterTargetArn: !GetAtt UploadEventsDLQ.Arn
+
+  UploadEventsDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${StackName}-upload-events-dlq'
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 1209600 # 14 days
+
+  UploadEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - 'aws.s3'
+        detail-type:
+          - 'Object Created'
+        detail:
+          bucket:
+            name:
+              - !ImportValue UserUploadsBucket
+          object:
+            key:
+              - wildcard: 'uploads/*/metadata.json'
+      Targets:
+        - Arn: !GetAtt UploadEventsQueue.Arn
+          Id: 'UploadSqsTarget'
+  UploadEventQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref UploadEventsQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'events.amazonaws.com'
+            Action: 'sqs:SendMessage'
+            Resource: !GetAtt UploadEventsQueue.Arn
+
+Outputs:
+  UploadEventsQueueArn:
+    Description: Upload events queue
+    Value: !GetAtt UploadEventsQueue.Arn
+    Export:
+      Name: UploadEventsQueueArn

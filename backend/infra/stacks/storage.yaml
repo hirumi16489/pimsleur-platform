@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Storage stack: S3 buckets for lesson audio and scripts'
+
+Parameters:
+  StackName:
+    Type: String
+    Description: The name of stack
+
+Resources:
+  UserUploadsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${StackName}-user-uploads'
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      # CorsConfiguration:
+      #   CorsRules:
+      #     - AllowedOrigins:
+      #         - "https://your-frontend.com" # Replace with CloudFront domain
+      #       AllowedMethods:
+      #         - GET
+      #         - PUT
+      #         - POST
+      #       AllowedHeaders:
+      #         - "*"
+      #       ExposedHeaders:
+      #         - ETag
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: ['https://pimsleur.dragoneertechnology.com', 'http://localhost:3000']
+            AllowedMethods: [PUT, GET, HEAD, POST]
+            AllowedHeaders: ['content-type','x-amz-*']
+            ExposedHeaders: ['ETag','x-amz-request-id','x-amz-id-2']
+            MaxAge: 3000
+
+Outputs:
+  UserUploadsBucket:
+    Value: !Ref UserUploadsBucket
+    Export:
+      Name: UserUploadsBucket

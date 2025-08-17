@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "shared": ["src/shared"]
+    },
+    "target": "ES2020", // Compatible with Lambda nodejs18.x runtime
+    "module": "commonjs", // Lambda uses CommonJS
+    "strict": true, // Enable strict typing
+    "esModuleInterop": true, // For default imports of CommonJS packages
+    "skipLibCheck": true, // Speeds up build
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist", // Compiled files for local testing
+    "types": ["node", "jest"], // Add Jest + Node global types
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*", "**/*.test.ts"],
+  "exclude": ["node_modules", "dist"]
+}

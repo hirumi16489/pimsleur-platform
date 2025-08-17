@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lesson Processing State Machine
+
+Parameters:
+  StackName:
+    Type: String
+    Description: The name of stack
+
+Resources:
+  LessonProcessingStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Metadata:
+      BuildMethod: esbuild
+    Properties:
+      StateMachineName: lesson-processing
+      RoleArn: !GetAtt LessonProcessingStateMachineRole.Arn
+      Definition:
+        Comment: 'Lesson processing with external text extraction worker'
+        StartAt: ExtractText
+        States:
+          ExtractText:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke.waitForTaskToken
+            Parameters:
+              FunctionName: !GetAtt SubmitExtractTextTaskFunction.Arn
+              Payload:
+                taskToken.$: '$$.Task.Token'
+                input.$: '$'
+            TimeoutSeconds: 86400 # 24 hours wait
+            End: true
+
+  StartProcessingFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+    Properties:
+      FunctionName: start-processing-from-sqs
+      CodeUri: ../../../src/application/handlers/startProcessingFromSqs
+      Handler: index.handler
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Timeout: 10
+      Environment:
+        Variables:
+          STEP_FUNCTION_ARN: !GetAtt LessonProcessingStateMachine.Arn
+          UPLOAD_BUCKET: !ImportValue UserUploadsBucket
+          EXTRACT_TEXT_QUEUE_URL: !Ref ExtractTextQueue
+      Policies:
+        - AmazonS3ReadOnlyAccess
+        - AmazonDynamoDBFullAccess
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:HeadObject
+              Resource: !Sub
+                - 'arn:aws:s3:::${BucketName}/uploads/*'
+                - { BucketName: !ImportValue UserUploadsBucket }
+            - Effect: Allow
+              Action:
+                - states:StartExecution
+              Resource: !GetAtt LessonProcessingStateMachine.Arn
+      Events:
+        SQSMessage:
+          Type: SQS
+          Properties:
+            Queue: !ImportValue UploadEventsQueueArn
+  SubmitExtractTextTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: submit-extract-text-task
+      CodeUri: ../../../src/application/handlers/submitExtractTextTask
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !ImportValue LessonProcessingStepsTableName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ExtractTextQueue.QueueName
+      Environment:
+        Variables:
+          LESSON_PROCESSING_TABLE: !ImportValue LessonProcessingStepsTableName
+          EXTRACT_TEXT_QUEUE_URL: !Ref ExtractTextQueue
+
+  ExtractTextQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: extract-text-jobs
+      VisibilityTimeout: 300
+
+  LessonProcessingStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AllowInvokeLambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: '*'
+
+Outputs:
+  LessonProcessingStateMachineArn:
+    Value: !GetAtt LessonProcessingStateMachine.Arn
+    Export:
+      Name: !Sub LessonProcessingStateMachineArn

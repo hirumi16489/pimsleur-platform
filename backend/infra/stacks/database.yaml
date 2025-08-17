@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Database stack: DynamoDB tables for Pimsleur Platform'
+
+Parameters:
+  StackName:
+    Type: String
+    Description: The name of stack
+
+Resources:
+  # --- Tables ---
+  UserVocabTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UserVocab
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: word
+          AttributeType: S
+        - AttributeName: jlptStatusIndex
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: word
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1-JLPTStatus
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: jlptStatusIndex
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: app
+          Value: pimsleur-platform
+  UserLessonVocabTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UserLessonVocab
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: lessonWord
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: lessonWord
+          KeyType: RANGE
+      Tags:
+        - Key: app
+          Value: pimsleur-platform
+  GlobalDictionaryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: GlobalDictionary
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: word
+          AttributeType: S
+      KeySchema:
+        - AttributeName: word
+          KeyType: HASH
+      Tags:
+        - Key: app
+          Value: pimsleur-platform
+  LessonProcessingStepsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: LessonProcessingSteps
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: lessonId
+          AttributeType: S
+        - AttributeName: stepName
+          AttributeType: S
+      KeySchema:
+        - AttributeName: lessonId
+          KeyType: HASH
+        - AttributeName: stepName
+          KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Project
+          Value: PimsleurPlatform
+
+Outputs:
+  UserVocabTableName:
+    Value: !Ref UserVocabTable
+    Export:
+      Name: UserVocabTableName
+  UserLessonVocabTableName:
+    Value: !Ref UserLessonVocabTable
+    Export:
+      Name: UserLessonVocabTableName
+  GlobalDictionaryTableName:
+    Value: !Ref GlobalDictionaryTable
+    Export:
+      Name: GlobalDictionaryTableName
+  LessonProcessingStepsTableName:
+    Value: !Ref LessonProcessingStepsTable
+    Export:
+      Name: LessonProcessingStepsTableName

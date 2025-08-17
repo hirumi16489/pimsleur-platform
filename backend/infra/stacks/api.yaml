@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'API stack: Lambda functions and shared API Gateway for Pimsleur Japanese Platform'
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+    Description: The stage to deploy the application to
+  StackName:
+    Type: String
+    Description: The name of stack
+  ApiCustomDomain:
+    Type: String
+    Description: 'e.g. api.pimsleur.dragoneertechnology.com'
+  ApiCertificateArn:
+    Type: String
+    Description: "ACM ARN in the API's region (Regional cert)"
+  HostedZoneId:
+    Type: String
+    Description: 'Public hosted zone ID for dragoneertechnology.com'
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+    Architectures:
+      - x86_64
+
+Resources:
+  # Shared API Gateway
+  ApiExecutionLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/apigw/${StackName}/${Stage}/execution'
+      RetentionInDays: 14
+  ApiGatewayCWLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: apigateway.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayCWLogsRole.Arn
+  PimsleurApi:
+    Type: AWS::Serverless::Api
+    DependsOn: ApiGatewayAccount
+    Properties:
+      Name: PimsleurApi
+      StageName: !Ref Stage
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !ImportValue CognitoUserPoolArn
+      Domain:
+        DomainName: !Ref ApiCustomDomain
+        CertificateArn: !Ref ApiCertificateArn
+        EndpointConfiguration: REGIONAL
+        SecurityPolicy: TLS_1_2
+        BasePath: ''
+        Route53:
+          HostedZoneId: !Ref HostedZoneId
+          EvaluateTargetHealth: false
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiExecutionLogs.Arn
+        Format: '{"requestId":"$context.requestId","status":$context.status,"integrationStatus":"$context.integrationStatus","authorizerError":"$context.authorizer.error","principalId":"$context.authorizer.principalId","path":"$context.path","httpMethod":"$context.httpMethod","ip":"$context.identity.sourceIp","ua":"$context.identity.userAgent","integrationError":"$context.integrationErrorMessage"}'
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          MetricsEnabled: true
+          LoggingLevel: INFO # set ERROR for less noise
+          DataTraceEnabled: true # shows request/response lines (turn off after debugging)
+  S3UploadPresignUrlFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+    Properties:
+      FunctionName: s3-upload-presign-url
+      CodeUri: ../../src/application/handlers/s3UploadPresignUrl
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          UPLOAD_BUCKET: !ImportValue UserUploadsBucket
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue
+            Fn::Sub: '${StackName}-SecurityGroupId'
+        SubnetIds: !Split
+          - ','
+          - !ImportValue
+            Fn::Sub: '${StackName}-PrivateSubnetIds'
+      Events:
+        Presign:
+          Type: Api
+          Properties:
+            Path: /s3-upload-presign
+            Method: POST
+            RestApiId: !Ref PimsleurApi
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - AmazonS3ReadOnlyAccess
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+                - s3:HeadObject
+                - s3:DeleteObject
+              Resource: !Sub
+                - 'arn:aws:s3:::${BucketName}/*'
+                - { BucketName: !ImportValue UserUploadsBucket }
+
+Outputs:
+  PimsleurApiId:
+    Description: API Gateway ID for downstream use
+    Value: !Ref PimsleurApi
+    Export:
+      Name: PimsleurApiId
