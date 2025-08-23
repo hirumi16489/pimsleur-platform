@@ -1,11 +1,15 @@
 import { UploadUrlProvider } from './ports/UploadUrlProvider';
 import { validateLessonId, validateUserId, AppError } from './validation';
-import { Result, MetadataFile } from './types';
+import { Result, UploadedFile, FileInfo } from './types';
+import { getFileInfoFromMimeType } from '../../infrastructure/mimeTypes';
 
 export type UploadUrl = {
   url: string;
   headers: Record<string, string>;
 };
+
+const getFilesKey = (userId: string, lessonId: string) =>
+  `uploads/${getUserKey(userId)}/${lessonId}/original`;
 
 const validate = (userId: string, lessonId: string): AppError | null => {
   const lessonIdError = validateLessonId(lessonId);
@@ -33,12 +37,13 @@ export class FileService {
   }
 
   async getUploadMetadataUrl(
-    bucket: string,
+    storageName: string,
     userId: string,
     lessonId: string
   ): Promise<Result<UploadUrl>> {
     const validationError = validate(userId, lessonId);
     const userKey = getUserKey(userId);
+    const filesKey = getFilesKey(userId, lessonId);
 
     if (validationError) {
       return { success: false, error: validationError };
@@ -46,16 +51,17 @@ export class FileService {
 
     try {
       const presignedUrlData = await this.uploadUrlProvider.generatePresignedUrl(
-        bucket,
-        `uploads/${userKey}/${lessonId}/metadata.json`,
-        'application/json'
+        storageName,
+        `uploads/${getUserKey(userId)}/${lessonId}/metadata.json`,
+        'application/json',
+        { userId: `${userKey}`, filesKey }
       );
       return { success: true, data: presignedUrlData };
     } catch (error) {
       return {
         success: false,
         error: {
-          code: 'INVALID_LESSON_ID',
+          code: 'GET_UPLOAD_METADATA_URL_FAILED',
           message: 'Failed to generate upload metadata URL',
           details: error,
         },
@@ -64,7 +70,7 @@ export class FileService {
   }
 
   async getUserUploadUrl(
-    bucket: string,
+    storageName: string,
     userId: string,
     lessonId: string,
     fileType: string
@@ -77,11 +83,23 @@ export class FileService {
     }
 
     try {
-      const [type, ext] = fileType.split('/');
+      const fileInfo = getFileInfoFromMimeType(fileType);
+      if (!fileInfo) {
+        return {
+          success: false,
+          error: {
+            code: 'INVALID_LESSON_ID',
+            message: 'Invalid file type',
+            details: { received: fileType },
+          },
+        };
+      }
+
+      const filesKey = getFilesKey(userId, lessonId);
       const time = Date.now();
       const presignedUrlData = await this.uploadUrlProvider.generatePresignedUrl(
-        bucket,
-        `uploads/${userKey}/${lessonId}/original/${type}/${time}.${ext}`,
+        storageName,
+        `${filesKey}/${fileInfo.fileType}/${time}.${fileInfo.extension}`,
         fileType,
         { userId: `${userKey}` }
       );
@@ -90,7 +108,7 @@ export class FileService {
       return {
         success: false,
         error: {
-          code: 'INVALID_LESSON_ID',
+          code: 'GET_USER_UPLOAD_URL_FAILED',
           message: 'Failed to generate user upload URL',
           details: error,
         },
@@ -98,16 +116,25 @@ export class FileService {
     }
   }
 
-  async getMetadata(bucket: string, key: string): Promise<Result<MetadataFile>> {
+  async getFileInfo(bucket: string, key: string): Promise<Result<FileInfo>> {
     try {
-      const content = await this.uploadUrlProvider.getObjectAsString(bucket, key);
-      const metadata = JSON.parse(content);
-      return { success: true, data: metadata };
+      const object = await this.uploadUrlProvider.getObject(bucket, key);
+      const objectData = JSON.parse(object.data);
+      // TODO: validate objectData and object.metadata
+      return {
+        success: true,
+        data: {
+          lessonId: objectData.lessonId,
+          userId: objectData.userId,
+          files: objectData.files,
+          metadata: object.metadata as { userId: string; filesKey: string },
+        },
+      };
     } catch (error) {
       return {
         success: false,
         error: {
-          code: 'INVALID_LESSON_ID',
+          code: 'GET_METADATA_FAILED',
           message: 'Failed to get metadata',
           details: error,
         },
@@ -115,10 +142,15 @@ export class FileService {
     }
   }
 
-  async areAllFilesUploaded(bucket: string, metadata: MetadataFile): Promise<Result<boolean>> {
+  async areAllFilesUploaded(bucket: string, fileInfo: FileInfo): Promise<Result<boolean>> {
     try {
       const checks = await Promise.all(
-        metadata.files.map((file: string) => this.uploadUrlProvider.doesObjectExist(bucket, file))
+        fileInfo.files.map((file: UploadedFile) =>
+          this.uploadUrlProvider.doesObjectExist(
+            bucket,
+            `${fileInfo.metadata.filesKey}/${file.name}`
+          )
+        )
       );
       const result = checks.every(Boolean);
       return { success: true, data: result };
@@ -126,7 +158,7 @@ export class FileService {
       return {
         success: false,
         error: {
-          code: 'INVALID_LESSON_ID',
+          code: 'CHECK_FILES_FAILED',
           message: 'Failed to check if all files are uploaded',
           details: error,
         },

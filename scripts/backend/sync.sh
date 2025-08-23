@@ -1,65 +1,95 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Parse named arguments
+# ------- defaults (env/args can override) -------
+REGION="${REGION:-ap-northeast-1}"
+STACK="${STACK:-pimsleur-platform}"
+LOGICAL_PATH="${LOGICAL_PATH:-}"
+TEMPLATE="${TEMPLATE:-backend/infra/template.yaml}"
+export AWS_PAGER=""
+
+# ------- args -------
 while [[ $# -gt 0 ]]; do
-  case $1 in
-    --region)
-      REGION="$2"
-      shift 2
-      ;;
-    --stack)
-      STACK="$2"
-      shift 2
-      ;;
-    --lambda)
-      LAMBDA_FUNCTION_NAME="$2"
-      shift 2
-      ;;
-    --help)
-      echo "Usage: $0 [OPTIONS]"
-      echo "Options:"
-      echo "  --region REGION                         AWS region"
-      echo "  --stack STACK                           Stack name"
-      echo "  --help                                  Show this help message"
-      exit 0
-      ;;
-    *)
-      echo "Unknown option: $1"
-      echo "Use --help for usage information"
-      exit 1
-      ;;
+  case "$1" in
+    --region) REGION="$2"; shift 2;;
+    --stack) STACK="$2"; shift 2;;
+    --lambda|--logical|--logical-id) LOGICAL_PATH="$2"; shift 2;;
+    --template|--template-file) TEMPLATE="$2"; shift 2;;
+    -h|--help)
+      cat <<EOF
+Usage: $0 --lambda <LogicalPath> [--stack <name>] [--region <r>] [--template <path>]
+Defaults: --region $REGION  --stack $STACK  --template $TEMPLATE
+EOF
+      exit 0;;
+    *) echo "Unknown option: $1"; exit 1;;
   esac
 done
 
-# Set defaults if not provided
-REGION="${REGION:-ap-northeast-1}"
-STACK="${STACK:-pimsleur-platform}"
-LAMBDA_FUNCTION_NAME="${LAMBDA_FUNCTION_NAME:-}"
+: "${LOGICAL_PATH:?--lambda <LogicalPath> is required (e.g. ApiStack/S3UploadPresignUrlFunction)}"
 
-: "${LAMBDA_FUNCTION_NAME:?LAMBDA_FUNCTION_NAME is required}"
+echo "sam build (template=$TEMPLATE)"
+sam build --template-file "$TEMPLATE"
 
-# Resolve paths + load env files if present (root and backend)
-SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." >/dev/null 2>&1 && pwd)"
-BACKEND_DIR="$REPO_ROOT/backend"
+BUILD_DIR=".aws-sam/build/${LOGICAL_PATH}"
+[[ -d "$BUILD_DIR" ]] || { echo "❌ Build dir not found: $BUILD_DIR"; ls -1 .aws-sam/build || true; exit 1; }
 
-# Load in order: repo root then backend, allowing backend values to override root
-for env_file in "$REPO_ROOT/.env" "$REPO_ROOT/.env.local" "$BACKEND_DIR/.env" "$BACKEND_DIR/.env.local"; do
-  if [[ -f "$env_file" ]]; then
-    echo "📄 Loading $env_file"
-    set -a
-    # shellcheck disable=SC1090
-    source "$env_file"
-    set +a
-  fi
-done
+# Zip contents of build dir (no extra top folder)
+ZIP="/tmp/${LOGICAL_PATH//\//_}.zip"
+rm -f "$ZIP"
+if command -v zip >/dev/null 2>&1; then
+  echo "Zipping with zip: $BUILD_DIR -> $ZIP"
+  ( cd "$BUILD_DIR" && zip -qr "$ZIP" . )
+else
+  echo "Zipping with python: $BUILD_DIR -> $ZIP"
+  python3 - "$BUILD_DIR" "$ZIP" <<'PY'
+import os, sys, zipfile
+build_dir, zip_path = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+    for root, _, files in os.walk(build_dir):
+        for f in files:
+            full = os.path.join(root, f)
+            rel = os.path.relpath(full, build_dir)
+            z.write(full, rel)
+print(zip_path)
+PY
+fi
+[[ -f "$ZIP" ]] || { echo "❌ Zip not created: $ZIP"; exit 1; }
 
-echo "Syncing $LAMBDA_FUNCTION_NAME"
+# Resolve a Lambda's physical name, supports any nesting depth
+resolve_fn() {
+  local parent_stack="$1" path="$2" current="$1"
+  IFS='/' read -r -a parts <<< "$path"
+  local last=$(( ${#parts[@]} - 1 ))
+  local func="${parts[$last]}"
 
-echo "sam sync --stack-name \"$STACK\" --region \"$REGION\" --code --resource-id \"$LAMBDA_FUNCTION_NAME\" --resource AWS::Serverless::Function --template-file \"$BACKEND_DIR/infra/template.yaml\""
+  # walk nested stacks by logical ID
+  for (( i=0; i<last; i++ )); do
+    local nest="${parts[$i]}"
+    # get the nested stack's PHYSICAL id by its logical id in the current stack
+    current=$(aws cloudformation describe-stack-resource \
+      --region "$REGION" \
+      --stack-name "$current" \
+      --logical-resource-id "$nest" \
+      --query 'StackResourceDetail.PhysicalResourceId' \
+      --output text 2>/dev/null)
+    [[ -n "$current" && "$current" != "None" ]] || {
+      echo "❌ Nested stack '$nest' not found under '$parent_stack' (at '$current')" >&2
+      return 1
+    }
+  done
 
+  # now resolve the Lambda by its logical id inside the (possibly nested) stack
+  aws cloudformation describe-stack-resource \
+    --region "$REGION" \
+    --stack-name "$current" \
+    --logical-resource-id "$func" \
+    --query 'StackResourceDetail.PhysicalResourceId' \
+    --output text 2>/dev/null
+}
+echo "Resolving function name for $LOGICAL_PATH"
+FN="$(resolve_fn "$STACK" "$LOGICAL_PATH")"
+[[ -n "$FN" && "$FN" != "None" ]] || { echo "❌ Lambda '$LOGICAL_PATH' not found in stack '$STACK'"; exit 1; }
 
-sam sync --stack-name "$STACK" --region "$REGION" --code \
-  --resource-id "$LAMBDA_FUNCTION_NAME" --resource AWS::Serverless::Function \
-  --template-file "$BACKEND_DIR/infra/template.yaml"
+echo "🚀 Updating $FN with $ZIP"
+aws lambda update-function-code --region "$REGION" --function-name "$FN" --zip-file "fileb://$ZIP"
+echo "✅ $FN updated ($REGION)"q

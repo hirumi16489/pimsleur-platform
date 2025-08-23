@@ -6,8 +6,9 @@ import { S3ClientWrapper } from '../../../infrastructure/S3Client';
 import { UploadUrlProvider } from '../../../domain/file/ports/UploadUrlProvider';
 import { mapAppErrorToHttpResponse } from '../../helpers/errorMapper';
 import { Result } from '../../../domain/file/types';
+import { getAllowedMimeTypes } from '../../../infrastructure/mimeTypes';
 
-const allowedMimeTypes = ['text/plain', 'image/jpeg', 'image/png'];
+const allowedMimeTypes = getAllowedMimeTypes();
 const config = getConfig();
 const s3 = new S3Client({ region: config.REGION, requestChecksumCalculation: 'WHEN_REQUIRED' });
 const uploadUrlProvider: UploadUrlProvider = new S3ClientWrapper(s3);
@@ -67,7 +68,12 @@ export const handler: APIGatewayProxyHandler = async (
       result = await fileService.getUploadMetadataUrl(config.UPLOAD_BUCKET_NAME, userId, lessonId);
       break;
     case PresignKind.USER_FILE:
-      result = await fileService.getUserUploadUrl(config.UPLOAD_BUCKET_NAME, userId, lessonId, fileType!);
+      result = await fileService.getUserUploadUrl(
+        config.UPLOAD_BUCKET_NAME,
+        userId,
+        lessonId,
+        fileType!
+      );
       break;
     default:
       return {

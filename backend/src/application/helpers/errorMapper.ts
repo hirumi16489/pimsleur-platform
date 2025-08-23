@@ -6,6 +6,13 @@ export function mapAppErrorToHttpResponse(error: AppError): APIGatewayProxyResul
   switch (error.code) {
     case 'INVALID_LESSON_ID':
     case 'INVALID_USER_ID':
+    case 'GET_UPLOAD_METADATA_URL_FAILED':
+    case 'GET_USER_UPLOAD_URL_FAILED':
+    case 'GET_METADATA_FAILED':
+    case 'CHECK_FILES_FAILED':
+    case 'INVALID_INPUT':
+    case 'ALREADY_EXISTS':
+    case 'NOT_FOUND':
       return {
         statusCode: 400,
         body: JSON.stringify({
@@ -13,6 +20,7 @@ export function mapAppErrorToHttpResponse(error: AppError): APIGatewayProxyResul
           details: error.details,
         }),
       };
+    case 'INTERNAL_ERROR':
     default:
       return {
         statusCode: 500,

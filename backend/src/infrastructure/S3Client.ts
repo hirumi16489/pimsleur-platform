@@ -3,8 +3,14 @@ import {
   PutObjectCommand,
   HeadObjectCommand,
   GetObjectCommand,
+  GetObjectCommandOutput,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+export type S3Object = {
+  data: string;
+  metadata: Record<string, string>;
+};
 
 export class S3ClientWrapper {
   private readonly s3Client: S3Client;
@@ -40,16 +46,22 @@ export class S3ClientWrapper {
   async doesObjectExist(bucket: string, key: string): Promise<boolean> {
     try {
       await this.s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+
       return true;
     } catch (err: any) {
       if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) return false;
+
       throw err;
     }
   }
 
-  async getObjectAsString(bucket: string, key: string): Promise<string> {
+  async getObject(bucket: string, key: string): Promise<S3Object> {
     const command = new GetObjectCommand({ Bucket: bucket, Key: key });
-    const response = await this.s3Client.send(command);
-    return (await response.Body?.transformToString()) || '';
+    const response: GetObjectCommandOutput = await this.s3Client.send(command);
+
+    return {
+      data: (await response.Body?.transformToString()) || '',
+      metadata: response.Metadata || {},
+    };
   }
 }

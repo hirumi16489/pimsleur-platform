@@ -1,6 +1,6 @@
 import { LessonProcessingStatus } from '../../shared';
-import type { DynamoLessonProcessingRepository } from '../../infrastructure/dynamodb/LessonProcessingRepository';
 import { z } from 'zod';
+import { LessonProcessingRepository } from './ports/LessonProcessingRepository';
 
 type StepHandler<TEvent = any, TResult = any> = (event: TEvent) => Promise<TResult>;
 
@@ -10,7 +10,7 @@ const TextExtractionEventSchema = z.object({
   taskToken: z.string(),
 });
 
-export function createStepWrapper(repo: DynamoLessonProcessingRepository) {
+export function createStepWrapper(repo: LessonProcessingRepository) {
   return function stepWrapper<TEvent, TResult>(
     stepName: string,
     handler: StepHandler<TEvent, TResult>,

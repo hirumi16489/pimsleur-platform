@@ -1,10 +1,15 @@
+export type Object = {
+  data: string;
+  metadata: Record<string, string>;
+};
+
 export interface UploadUrlProvider {
   generatePresignedUrl(
-    bucket: string,
+    storageName: string,
     key: string,
     contentType: string,
     metadata?: Record<string, string>
   ): Promise<{ url: string; headers: Record<string, string> }>;
-  doesObjectExist(bucket: string, key: string): Promise<boolean>;
-  getObjectAsString(bucket: string, key: string): Promise<string>;
+  doesObjectExist(storageName: string, key: string): Promise<boolean>;
+  getObject(storageName: string, key: string): Promise<Object>;
 }

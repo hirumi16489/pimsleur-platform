@@ -34,6 +34,9 @@ Resources:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.ts
     Properties:
       FunctionName: start-processing-from-sqs
       CodeUri: ../../../src/application/handlers/startProcessingFromSqs
@@ -68,6 +71,11 @@ Resources:
             Queue: !ImportValue UploadEventsQueueArn
   SubmitExtractTextTaskFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - index.ts
     Properties:
       FunctionName: submit-extract-text-task
       CodeUri: ../../../src/application/handlers/submitExtractTextTask

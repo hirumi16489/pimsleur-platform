@@ -1,6 +1,16 @@
 // Centralized validation patterns and functions
 
-export type AppErrorCode = 'INVALID_LESSON_ID' | 'INVALID_USER_ID';
+export type AppErrorCode =
+  | 'INVALID_LESSON_ID'
+  | 'INVALID_USER_ID'
+  | 'GET_UPLOAD_METADATA_URL_FAILED'
+  | 'GET_USER_UPLOAD_URL_FAILED'
+  | 'GET_METADATA_FAILED'
+  | 'CHECK_FILES_FAILED'
+  | 'INVALID_INPUT'
+  | 'ALREADY_EXISTS'
+  | 'INTERNAL_ERROR'
+  | 'NOT_FOUND';
 
 export interface AppError {
   code: AppErrorCode;

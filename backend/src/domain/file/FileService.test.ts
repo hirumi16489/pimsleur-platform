@@ -7,7 +7,9 @@ jest.spyOn(config, 'getConfig').mockReturnValue({ UPLOAD_BUCKET_NAME: 'test-buck
 
 describe('uploadService', () => {
   it('getUserUploadUrl should compose key and call provider', async () => {
-    const generatePresignedUrl = jest.fn().mockResolvedValue({ url: 'https://signed.url', headers: { 'content-type': 'image/png' } });
+    const generatePresignedUrl = jest
+      .fn()
+      .mockResolvedValue({ url: 'https://signed.url', headers: { 'content-type': 'image/png' } });
     const mockS3Wrapper = { generatePresignedUrl };
 
     const fileService = new FileService(mockS3Wrapper as any);
@@ -35,38 +37,47 @@ describe('uploadService', () => {
   });
 
   it('getUploadMetadataUrl should compose metadata key and call provider', async () => {
-    const generatePresignedUrl = jest.fn().mockResolvedValue({ url: 'https://signed.meta.url', headers: { 'content-type': 'application/json' } });
+    const generatePresignedUrl = jest.fn().mockResolvedValue({
+      url: 'https://signed.meta.url',
+      headers: { 'content-type': 'application/json' },
+    });
     const mockProvider = { generatePresignedUrl } as any;
     const fileService = new FileService(mockProvider);
 
     const lessonId = `lesson#${uuidv4()}`;
     const userId = uuidv4();
-    const result: Result<{ url: string; headers: Record<string, string> }> = await fileService.getUploadMetadataUrl(
-      'bucket',
-      userId,
-      lessonId
-    );
+    const result: Result<{ url: string; headers: Record<string, string> }> =
+      await fileService.getUploadMetadataUrl('bucket', userId, lessonId);
 
     expect(result.success).toBe(true);
     expect((result as any).data.url).toBe('https://signed.meta.url');
     expect(generatePresignedUrl).toHaveBeenCalledWith(
       'bucket',
       `uploads/user#${userId}/${lessonId}/metadata.json`,
-      'application/json'
+      'application/json',
+      { userId: `user#${userId}`, filesKey: `uploads/user#${userId}/${lessonId}/original` }
     );
   });
 
-  it('getMetadata returns parsed object', async () => {
+  it('getFileInfo returns parsed object', async () => {
     const lessonId = `lesson#${uuidv4()}`;
     const userId = uuidv4();
     const metadataObj = { lessonId, userId: `user#${userId}`, files: ['a', 'b'] };
-    const getObjectAsString = jest.fn().mockResolvedValue(JSON.stringify(metadataObj));
-    const fileService = new FileService({ getObjectAsString } as any);
+    const getObject = jest.fn().mockResolvedValue({
+      data: JSON.stringify(metadataObj),
+      metadata: { userId: `user#${userId}`, filesKey: 'uploads/user#123/lesson#456' },
+    });
+    const fileService = new FileService({ getObject } as any);
 
-    const result = await fileService.getMetadata('bucket', 'key');
+    const result = await fileService.getFileInfo('bucket', 'key');
     expect(result.success).toBe(true);
-    expect((result as any).data).toEqual(metadataObj);
-    expect(getObjectAsString).toHaveBeenCalledWith('bucket', 'key');
+    expect((result as any).data).toEqual({
+      lessonId,
+      userId: `user#${userId}`,
+      files: ['a', 'b'],
+      metadata: { userId: `user#${userId}`, filesKey: 'uploads/user#123/lesson#456' },
+    });
+    expect(getObject).toHaveBeenCalledWith('bucket', 'key');
   });
 
   it('areAllFilesUploaded returns true only when all exist', async () => {
@@ -74,7 +85,12 @@ describe('uploadService', () => {
     const fileService = new FileService({ doesObjectExist } as any);
     const lessonId = `lesson#${uuidv4()}`;
     const userId = uuidv4();
-    const meta = { lessonId, userId: `user#${userId}`, files: ['a', 'b', 'c'] } as any;
+    const meta = {
+      lessonId,
+      userId: `user#${userId}`,
+      files: ['a', 'b', 'c'],
+      metadata: { userId: `user#${userId}`, filesKey: 'uploads/user#123/lesson#456' },
+    } as any;
 
     const result1 = await fileService.areAllFilesUploaded('bucket', meta);
     expect(result1.success).toBe(true);
@@ -94,7 +110,9 @@ describe('uploadService', () => {
   });
 
   it('should return validation error for invalid lesson ID', async () => {
-    const generatePresignedUrl = jest.fn().mockResolvedValue({ url: 'https://signed.url', headers: { 'content-type': 'image/png' } });
+    const generatePresignedUrl = jest
+      .fn()
+      .mockResolvedValue({ url: 'https://signed.url', headers: { 'content-type': 'image/png' } });
     const mockS3Wrapper = { generatePresignedUrl };
     const fileService = new FileService(mockS3Wrapper as any);
 
@@ -112,7 +130,9 @@ describe('uploadService', () => {
   });
 
   it('should return validation error for invalid user ID', async () => {
-    const generatePresignedUrl = jest.fn().mockResolvedValue({ url: 'https://signed.url', headers: { 'content-type': 'image/png' } });
+    const generatePresignedUrl = jest
+      .fn()
+      .mockResolvedValue({ url: 'https://signed.url', headers: { 'content-type': 'image/png' } });
     const mockS3Wrapper = { generatePresignedUrl };
     const fileService = new FileService(mockS3Wrapper as any);
 
@@ -130,7 +150,9 @@ describe('uploadService', () => {
   });
 
   it('should validate proper UUIDs correctly', async () => {
-    const generatePresignedUrl = jest.fn().mockResolvedValue({ url: 'https://signed.url', headers: { 'content-type': 'image/png' } });
+    const generatePresignedUrl = jest
+      .fn()
+      .mockResolvedValue({ url: 'https://signed.url', headers: { 'content-type': 'image/png' } });
     const mockS3Wrapper = { generatePresignedUrl };
     const fileService = new FileService(mockS3Wrapper as any);
 
@@ -161,7 +183,9 @@ describe('uploadService', () => {
   });
 
   it('should reject UUID-like strings that are not real UUIDs', async () => {
-    const generatePresignedUrl = jest.fn().mockResolvedValue({ url: 'https://signed.url', headers: { 'content-type': 'image/png' } });
+    const generatePresignedUrl = jest
+      .fn()
+      .mockResolvedValue({ url: 'https://signed.url', headers: { 'content-type': 'image/png' } });
     const mockS3Wrapper = { generatePresignedUrl };
     const fileService = new FileService(mockS3Wrapper as any);
 
@@ -193,7 +217,10 @@ describe('uploadService', () => {
   });
 
   it('should return validation error for invalid lesson ID in metadata URL', async () => {
-    const generatePresignedUrl = jest.fn().mockResolvedValue({ url: 'https://signed.meta.url', headers: { 'content-type': 'application/json' } });
+    const generatePresignedUrl = jest.fn().mockResolvedValue({
+      url: 'https://signed.meta.url',
+      headers: { 'content-type': 'application/json' },
+    });
     const mockProvider = { generatePresignedUrl } as any;
     const fileService = new FileService(mockProvider);
 

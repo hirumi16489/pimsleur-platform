@@ -37,12 +37,15 @@ describe('S3ClientWrapper', () => {
     await expect(wrapper.doesObjectExist('b', 'k')).resolves.toBe(false);
   });
 
-  it('getObjectAsString returns body string', async () => {
+  it('getObject returns object with data and metadata', async () => {
     (s3 as any).send = jest.fn();
     (s3.send as jest.Mock).mockResolvedValueOnce({
       Body: { transformToString: () => Promise.resolve('content') },
+      Metadata: { userId: '123' },
     });
     const wrapper = new S3ClientWrapper(s3 as any);
-    await expect(wrapper.getObjectAsString('b', 'k')).resolves.toBe('content');
+    const result = await wrapper.getObject('b', 'k');
+    expect(result.data).toBe('content');
+    expect(result.metadata).toEqual({ userId: '123' });
   });
 });

@@ -14,6 +14,24 @@ export class DynamoLessonProcessingRepository implements LessonProcessingReposit
     private dynamo: DynamoDBClient
   ) {}
 
+  async createLessonProcessing(userId: string, lessonId: string, step: string): Promise<void> {
+    const item = {
+      userId,
+      lessonId,
+      step,
+      status: LessonProcessingStatus.IN_PROGRESS,
+      lastUpdated: new Date().toISOString(),
+    };
+    const parsedItem = LessonProcessingSchema.parse(item);
+
+    await this.dynamo.send(
+      new PutItemCommand({
+        TableName: this.tableName,
+        Item: marshall(parsedItem),
+      })
+    );
+  }
+
   async markInProgress(userId: string, lessonId: string, step: string): Promise<void> {
     const item = {
       userId,

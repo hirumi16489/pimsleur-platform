@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: 'Database stack: DynamoDB tables for Pimsleur Platform'
+Description: 'Database stack: DynamoDB tables for Pimsleur Platform (free-tier tuned)'
 
 Parameters:
   StackName:
@@ -8,12 +8,15 @@ Parameters:
     Description: The name of stack
 
 Resources:
-  # --- Tables ---
+  # --- Tables (Provisioned capacity to stay within free tier) ---
   UserVocabTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: UserVocab
-      BillingMode: PAY_PER_REQUEST
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
       AttributeDefinitions:
         - AttributeName: userId
           AttributeType: S
@@ -35,14 +38,21 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
       Tags:
         - Key: app
           Value: pimsleur-platform
+
   UserLessonVocabTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: UserLessonVocab
-      BillingMode: PAY_PER_REQUEST
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
       AttributeDefinitions:
         - AttributeName: userId
           AttributeType: S
@@ -56,11 +66,15 @@ Resources:
       Tags:
         - Key: app
           Value: pimsleur-platform
+
   GlobalDictionaryTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: GlobalDictionary
-      BillingMode: PAY_PER_REQUEST
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
       AttributeDefinitions:
         - AttributeName: word
           AttributeType: S
@@ -70,11 +84,15 @@ Resources:
       Tags:
         - Key: app
           Value: pimsleur-platform
+
   LessonProcessingStepsTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: LessonProcessingSteps
-      BillingMode: PAY_PER_REQUEST
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 4
+        WriteCapacityUnits: 4
       AttributeDefinitions:
         - AttributeName: lessonId
           AttributeType: S

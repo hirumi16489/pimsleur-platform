@@ -8,6 +8,7 @@ Parameters:
     Default: dev
     AllowedValues:
       - dev
+      - staging
       - prod
     Description: The stage to deploy the application to
   StackName:

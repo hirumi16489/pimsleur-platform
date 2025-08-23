@@ -1,6 +1,7 @@
 import { LessonProcessingStatus } from '../../../shared/types/LessonProcessing';
 
 export interface LessonProcessingRepository {
+  createLessonProcessing(userId: string, lessonId: string, step: string): Promise<void>;
   markInProgress(userId: string, lessonId: string, step: string): Promise<void>;
   markCompleted(userId: string, lessonId: string, step: string): Promise<void>;
   markFailed(userId: string, lessonId: string, step: string, error: string): Promise<void>;

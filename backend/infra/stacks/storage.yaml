@@ -36,8 +36,8 @@ Resources:
         CorsRules:
           - AllowedOrigins: ['https://pimsleur.dragoneertechnology.com', 'http://localhost:3000']
             AllowedMethods: [PUT, GET, HEAD, POST]
-            AllowedHeaders: ['content-type','x-amz-*']
-            ExposedHeaders: ['ETag','x-amz-request-id','x-amz-id-2']
+            AllowedHeaders: ['content-type', 'x-amz-*']
+            ExposedHeaders: ['ETag', 'x-amz-request-id', 'x-amz-id-2']
             MaxAge: 3000
 
 Outputs:

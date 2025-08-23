@@ -168,15 +168,11 @@ export default function UploadPage() {
 
       // Generate a unique lesson ID for this upload session
       const lessonId = generateLessonId();
-      console.log('Generated lesson ID:', lessonId);
-
       const assetFiles = sortedFiles.filter((file) => file.name !== 'metadata.json');
       const uploadedFiles: UploadedFile[] = [];
 
       for (const assetFile of assetFiles) {
         const presigned = await requestPresignedUpload(assetFile, lessonId);
-        console.log('Presigned URL:', presigned);
-        console.log('Asset file:', assetFile);
         const uploaded = await uploadWithPresignedUrl(assetFile, presigned);
         uploadedFiles.push(uploaded);
       }

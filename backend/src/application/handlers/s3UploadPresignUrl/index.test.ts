@@ -30,6 +30,7 @@ describe('s3UploadPresignUrlHandler', () => {
   const makeEvent = (overrides?: Partial<APIGatewayProxyEvent>) =>
     ({
       body: JSON.stringify({
+        kind: 'USER_FILE',
         fileType: 'image/png',
         lessonId: `lesson#${uuidv4()}`,
         ...(overrides?.body as any),
@@ -50,7 +51,10 @@ describe('s3UploadPresignUrlHandler', () => {
 
   it('should return 200 with presigned URL', async () => {
     const handler = await loadHandler(undefined, {
-      getUserUploadUrl: jest.fn().mockResolvedValue({ success: true, data: { url: 'https://example.com', headers: { 'content-type': 'image/png' } } }),
+      getUserUploadUrl: jest.fn().mockResolvedValue({
+        success: true,
+        data: { url: 'https://example.com', headers: { 'content-type': 'image/png' } },
+      }),
     } as any);
     const response = (await handler(
       makeEvent(),
@@ -58,7 +62,9 @@ describe('s3UploadPresignUrlHandler', () => {
       {} as Callback<APIGatewayProxyResult>
     )) as APIGatewayProxyResult;
     expect(response.statusCode).toBe(200);
-    expect(response.body).toBe(JSON.stringify({ url: 'https://example.com', headers: { 'content-type': 'image/png' } }));
+    expect(response.body).toBe(
+      JSON.stringify({ url: 'https://example.com', headers: { 'content-type': 'image/png' } })
+    );
   });
 
   it('should return 400 for invalid fileType', async () => {
