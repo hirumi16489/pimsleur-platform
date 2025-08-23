@@ -149,6 +149,26 @@ describe('uploadService', () => {
     expect(generatePresignedUrl).not.toHaveBeenCalled();
   });
 
+  it('should return error for unsupported file type', async () => {
+    const generatePresignedUrl = jest
+      .fn()
+      .mockResolvedValue({ url: 'https://signed.url', headers: { 'content-type': 'image/png' } });
+    const mockS3Wrapper = { generatePresignedUrl };
+    const fileService = new FileService(mockS3Wrapper as any);
+
+    const result = await fileService.getUserUploadUrl(
+      'test-bucket',
+      uuidv4(),
+      `lesson#${uuidv4()}`,
+      'invalid'
+    );
+
+    expect(result.success).toBe(false);
+    expect((result as any).error.code).toBe('INVALID_FILE_TYPE');
+    expect((result as any).error.message).toBeDefined();
+    expect(generatePresignedUrl).not.toHaveBeenCalled();
+  });
+
   it('should validate proper UUIDs correctly', async () => {
     const generatePresignedUrl = jest
       .fn()

@@ -88,7 +88,7 @@ export class FileService {
         return {
           success: false,
           error: {
-            code: 'INVALID_LESSON_ID',
+            code: 'INVALID_FILE_TYPE',
             message: 'Invalid file type',
             details: { received: fileType },
           },
